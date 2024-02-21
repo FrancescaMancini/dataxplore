@@ -1,0 +1,93 @@
+---
+title: "Data wrangling operations"
+output: html_document
+date: "2024-01-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(sf)
+library(dplyr)
+library(occAssess)
+```
+
+## Different views
+
+Create some data and visualise them as a table or summaries.
+
+```{r}
+    random_points <- st_sample(spData::world[spData::world$name_long == "United Kingdom", 0],
+                               size = 100, type = "random", crs = st_crs(4326))
+    example_data <- data.frame(species = sample(letters, 100, replace = TRUE),
+                               date = sample(seq(as.Date("2010-04-23"),
+                                                 as.Date("2021-09-15"),
+                                                 by = "day"), size = 100),
+                               x = st_coordinates(random_points)[,1],
+                               y = st_coordinates(random_points)[,2],
+                               group = sample(LETTERS[1:5], 100, replace = TRUE),
+                               sp_prec = 1000
+                               )
+    example_data$year <- format(as.Date(example_data$date, format="%Y/%m/%d"),"%Y")
+
+
+```
+
+One option is to view summaries of different variables.
+If the variable class is character, return the number of observations for each unique value
+
+```{r}
+example_data %>%
+        group_by(species) %>%
+        summarise(n_records = n())
+```
+
+If the variable is a date show the range
+
+```{r}
+example_data %>%
+  select(date) %>%
+  mutate(date = as.Date(date)) %>%
+  summarise(min = min(date),
+            max= max(date))
+```
+
+If the variable is coordinates, return bounding box
+
+```{r}
+example_data %>%
+  select(x,y) %>%
+  summarise(x_min = min(x),
+            x_max = max(x),
+            y_min = min(y),
+            y_max = max(y))
+```
+
+
+```{r}
+
+my_data <- read.csv("/data/example_data.csv")
+
+lat <- rnrfa::osg_parse(grid_refs = my_data[,"gridref"], coord_system = "WGS84")$lat
+lon <- rnrfa::osg_parse(grid_refs = my_data[,"gridref"], coord_system = "WGS84")$lon
+
+cbind(lat, lon)
+
+```
+
+
+
+```{r}
+
+pers <- unique(example_data[,"year"])
+nRec <- assessRecordNumber(dat = example_data,
+                           species  = "species",
+                           periods = pers,
+                           x = "x",
+                         y = "y",
+                         year = "year",
+                         spatialUncertainty = "sp_prec",
+                         # maxSpatUncertainty = 10000,
+                         identifier = "group")
+
+nRec$plot
+```
