@@ -77,7 +77,7 @@ golem::add_css_file("custom")
 ## service for your application
 ##
 ## (You'll need GitHub there)
-# usethis::use_github()
+usethis::use_github()
 
 # GitHub Actions
 # usethis::use_github_action()
