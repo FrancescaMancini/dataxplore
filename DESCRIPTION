@@ -1,14 +1,29 @@
 Package: dataxplore
 Title: Data exploration and bias assessment tool
 Version: 0.0.0.9000
-Authors@R: person('Francesca', 'Mancini', email = 'framan@ceh.ac.uk', role = c('cre', 'aut'))
-Description: An application to explore species occurrence data and assess biases in space, time, taxonomy and environmental space. 
-  The application is an interface to the R package OccAssess and the ROBITT framework.
+Authors@R: 
+    person("Francesca", "Mancini", , "framan@ceh.ac.uk", role = c("cre", "aut"))
+Description: An application to explore species occurrence data and assess
+    biases in space, time, taxonomy and environmental space.  The
+    application is an interface to the R package OccAssess and the ROBITT
+    framework.
 License: MIT + file LICENSE
 Imports: 
+    bsicons,
+    bslib,
     config (>= 0.3.2),
+    DT,
     golem (>= 0.4.1),
-    shiny (>= 1.7.5)
+    sf,
+    shinipsum,
+    shiny (>= 1.7.5),
+    spData,
+    vroom
+Suggests: 
+    spelling,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
 Encoding: UTF-8
+Language: en-US
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.3
