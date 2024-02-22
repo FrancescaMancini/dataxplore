@@ -141,13 +141,13 @@ mod_time_bias_tab_server <- function(id, uploaded_data){
 
       req(input$species, input$year, input$lon, input$lat, input$ident, input$periodtype, uploaded_data())
 
-      pers <- list(unique(uploaded_data()[,input$year])) # need to figure out what to do when periodtype == "ranges"
+      # pers <- unique(uploaded_data()[,input$year]) # need to figure out what to do when periodtype == "ranges"
 
+      dat = as.data.frame(uploaded_data())
 
-
-      assessRecordNumber(dat = uploaded_data(),
+      assessRecordNumber(dat = dat,
                          species = input$species,
-                         periods = pers,
+                         periods = unique(dat[,input$year]),
                          x = input$lon,
                          y = input$lat,
                          year = input$year,

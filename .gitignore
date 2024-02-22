@@ -4,3 +4,5 @@
 .httr-oauth
 .DS_Store
 .quarto
+dylan_dev_file.R
+example_data.csv
