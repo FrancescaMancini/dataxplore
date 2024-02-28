@@ -67,7 +67,7 @@ mod_time_bias_tab_ui <- function(id){
           choices = NULL
         ),
         actionButton(
-          "plot_button", "Plot"
+          ns("plot_button"), "Plot"
         ),
         # checkboxInput("code", "View R code"
         # ),
@@ -84,7 +84,7 @@ mod_time_bias_tab_ui <- function(id){
               placement = "bottom"
             )
           )),
-        plotOutput(ns("time_plot"))
+        plotOutput(ns("number_records"))
       )
     )
   )
@@ -137,36 +137,24 @@ mod_time_bias_tab_server <- function(id, uploaded_data){
       tagList(dateRanges)
     })
 
-    nRec <- reactive({
+    observeEvent(input$plot_button, {
 
-      req(input$species, input$year, input$lon, input$lat, input$ident, input$periodtype, uploaded_data())
-
-      # pers <- unique(uploaded_data()[,input$year]) # need to figure out what to do when periodtype == "ranges"
-
-      dat = as.data.frame(uploaded_data())
-
-      assessRecordNumber(dat = dat,
-                         species = input$species,
-                         periods = unique(dat[,input$year]),
-                         x = input$lon,
-                         y = input$lat,
-                         year = input$year,
-                         spatialUncertainty = NULL,
-                         identifier = input$ident # apparently we have to have an identifier column... ask Rob if there is a way around that as this is not ideal
-                         )$plot
-      })
-
-    # not working!
-
-      output$time_plot <- renderPlot({
-
-        input$plot_button
-
-        nRec()
-
-
-      })
-
+      req(input$species, input$year, input$lon, input$lat, input$ident, uploaded_data())
+      
+      dat <- as.data.frame(uploaded_data())
+      
+      output$number_records <- renderPlot({
+        # Your plotting code here
+        assessRecordNumber(dat = dat,
+                          species = input$species,
+                          periods = unique(dat[, input$year]),
+                          x = input$lon,
+                          y = input$lat,
+                          year = input$year,
+                          spatialUncertainty = NULL,
+                          identifier = input$ident)$plot
+  })
+})
 
    })
 }
