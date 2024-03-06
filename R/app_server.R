@@ -12,40 +12,60 @@ app_server <- function(input, output, session) {
   # can only be .csv or .txt
   # otherwise return message "Invalid file"
 
-  # uploaded_data <- reactiveVal()
+  # Create a reactive value to adaptively store shared data
+  uploaded_data <- reactiveVal()
 
- uploaded_data <- reactive({
-   req(input$upload)
+  observe({
+    # Ensure that a file is uploaded
+    req(input$upload)
 
-    ext <- tools::file_ext(input$upload$name)
-    switch(ext,
-           csv = vroom::vroom(input$upload$datapath, delim = ","),
-           txt = vroom::vroom(input$upload$datapath, delim = "\t"),
-           validate("Invalid file; Please upload a .csv or .txt file")
+    # Determine the file extension
+    ext <- file_ext(input$upload$name)
+
+    # Step 2: Process the upload
+    data <- switch(ext,
+      csv = vroom(input$upload$datapath, delim = ","),
+      txt = vroom(input$upload$datapath, delim = "\t"),
+      stop("Invalid file; Please upload a .csv or .txt file")
     )
+
+    # Update the reactiveVal with the new data
+    uploaded_data(data)
   })
 
   # when checkbox for converting grid references is ticked
   # a drop down menu appears to select the gridref column
   #  and an action button to convert them to lat and long
+observeEvent(input$grid_ref, {
 
-  observeEvent(input$grid_ref, {
+  #If the grid_ref box has been checked...
+  if (input$grid_ref == TRUE) {
     insertUI(
-      selector = paste0("#", "placeholder"),
+      selector = "#placeholder",
       where = "beforeEnd",
-      ui =  fluidRow(
-            tagList(
+      ui = fluidRow(
+        id = "dynamicUI", # Assign an ID to the entire row for easy removal
+        tagList(
           varSelectInput(
             "grid_ref_column", "Grid Reference column",
             data = uploaded_data()
           ),
           actionButton(
             "grid_ref_convert",
-            "Convert")
+            "Convert"
+          )
         )
       )
     )
-  })
+
+  # If the grid_ref box has not been checked...
+  } else {
+    # Remove the UI element to prevent the repetetive addition of UI elements
+    removeUI(
+      selector = "#dynamicUI" # Use the ID assigned to the inserted UI for removal
+    )
+  }
+})
 
   # when the action button is clicked convert the
   # grid references into lat and long
@@ -56,20 +76,17 @@ app_server <- function(input, output, session) {
     osg_parse(grid_refs = sites, coord_system = "WGS84")
   })
 
-  # this should work but it doesn't
+  # Update the uploaded_data reactive value with the extracted longitude and latitude values
+  observeEvent(input$grid_ref_convert, {
+    req(uploaded_data(), lat_lon(), input$grid_ref_column)
+    df <- uploaded_data()
+    df$lat <- lat_lon()$lat
+    df$long <- lat_lon()$lon
+    uploaded_data(df)
 
-  # observeEvent(input$grid_ref_convert, {
-  #   req(uploaded_data(), lat_lon(), input$grid_ref_column)
-  #   # if ('data.frame' %in% class(uploaded_data())){
-  #     uploaded_data()$lat <- lat_lon()$lat
-  #     uploaded_data()$lon <- lat_lon()$lon
-  #   # }
-  # })
-  #
-
+  })
 
   # create the datatable only when the view data button is clicked
-
   view_table <- eventReactive(input$view_button, {
     req(input$view_button)
 
@@ -77,11 +94,9 @@ app_server <- function(input, output, session) {
   })
 
   # render the table
-  output$data_table <-DT::renderDT({
+  output$data_table <- DT::renderDT({
     view_table()
   })
-
-
 
   mod_data_tab_server("data_tab_1", uploaded_data = uploaded_data)
   mod_time_bias_tab_server("time_bias_tab_1", uploaded_data = uploaded_data)
