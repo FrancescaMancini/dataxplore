@@ -263,7 +263,27 @@ mod_time_bias_tab_server <- function(id, uploaded_data) {
         periods = sort(unique(dat[[input$year]]))
       }
 
+
       output$number_records <- renderPlot({
+
+        if (input$periodtype == "ranges") {
+
+          # Check for increasing years within each period
+          for(period in periods) {
+            validate(
+              need(min(period) == period[1] && max(period) == period[length(period)], "Period years are not in ascending order.")
+            )
+          }
+          
+          # Check for overlapping periods
+          for(i in 1:(length(periods) - 1)) {
+            validate(
+              need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
+            )
+          }
+
+        }
+
         assessRecordNumber(
           dat = dat,
           species = input$species,
