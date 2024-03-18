@@ -100,7 +100,7 @@ observeEvent(input$grid_ref, {
 
   mod_data_tab_server("data_tab_1", uploaded_data = uploaded_data)
   mod_time_bias_tab_server("time_bias_tab_1", uploaded_data = uploaded_data)
-  mod_species_bias_tab_server("species_bias_tab_1")
+  mod_species_bias_tab_server("species_bias_tab_1", uploaded_data = uploaded_data)
   mod_species_id_bias_tab_server("species_id_bias_tab_1")
   mod_rarity_bias_tab_server("rarity_bias_tab_1")
   mod_space_cov_tab_server("space_cov_tab_1")
