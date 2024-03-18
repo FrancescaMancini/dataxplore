@@ -6,7 +6,7 @@
 #'
 #' @noRd
 #'
-#' @import shiny DT spData dplyr vroom tools rnrfa
+#' @import shiny DT spData dplyr vroom tools rnrfa lubridate
 #' @importFrom sf st_coordinates st_sample
 
 mod_data_tab_ui <- function(id){
@@ -25,6 +25,13 @@ mod_data_tab_ui <- function(id){
           ns("date"), "Date column",
           data = NULL
         ),
+
+        radioButtons(ns("date_format"), "Select date format (please ignore seperator)",
+                    choices = c("day/month/year" = "format_a",
+                                "month/day/year" = "format_b",
+                                "year/month/day" = "format_c"),
+                    selected = "format_a"),
+        
         actionButton(
           ns("date_summary_button"), "Dates summary"
         ),
@@ -117,10 +124,29 @@ mod_data_tab_server <- function(id, uploaded_data){
     date_summary <- reactive({
       req(uploaded_data(), input$date, input$date_summary_button)
 
+      # re-format the dates (according to inputs)
+        if (input$date_format == "format_a"){
+
       uploaded_data() %>%
         select(input$date) %>%
-        summarise(first_record = min(as.Date(eval(as.name(input$date)), format = "%d/%m/%Y")),
-                  last_record = max(as.Date(eval(as.name(input$date)), format = "%d/%m/%Y")))
+        summarise(first_record = min(dmy(eval(as.name(input$date)))),
+                  last_record = max(dmy(eval(as.name(input$date)))))
+        }
+
+        else if (input$date_format == "format_b"){
+      uploaded_data() %>%
+        select(input$date) %>%
+        summarise(first_record = min(mdy(eval(as.name(input$date)))),
+                  last_record = max(mdy(eval(as.name(input$date)))))
+        }
+
+        else {
+      uploaded_data() %>%
+        select(input$date) %>%
+        summarise(first_record = min(ymd(eval(as.name(input$date)))),
+                  last_record = max(ymd(eval(as.name(input$date)))))
+        }
+
     })
 
 

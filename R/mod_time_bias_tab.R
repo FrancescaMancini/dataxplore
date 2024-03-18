@@ -251,23 +251,39 @@ mod_time_bias_tab_server <- function(id, uploaded_data) {
         ranges_input_names <- paste0("dates_", 1:input$num)
 
         # Filter the list based on 'period_ranges'
-        year_ranges <- lapply(ranges_input_names, function(x) input[[x]])
+        year_ranges <- lapply(ranges_input_names, function(x){ input[[x]]})
 
         # Convert the year_ranges into vectors with year intervals of 1
         periods <- lapply(year_ranges, function(element) {
           seq(from = element[1], to = element[2])
         })
 
-        if (length(periods) == 1){
+      } else{
 
-          periods = unlist(periods)
-        }
-
-      } else {
-        periods <- unique(dat[[input$year]])
+        periods = sort(unique(dat[[input$year]]))
       }
 
+
       output$number_records <- renderPlot({
+
+        if (input$periodtype == "ranges") {
+
+          # Check for increasing years within each period
+          for(period in periods) {
+            validate(
+              need(min(period) == period[1] && max(period) == period[length(period)], "Period years are not in ascending order.")
+            )
+          }
+          
+          # Check for overlapping periods
+          for(i in 1:(length(periods) - 1)) {
+            validate(
+              need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
+            )
+          }
+
+        }
+
         assessRecordNumber(
           dat = dat,
           species = input$species,
