@@ -2,7 +2,7 @@
 #'
 #' @param input,output,session Internal parameters for {shiny}.
 #'     DO NOT REMOVE.
-#' @import shiny
+#' @import shiny dplyr
 #' @noRd
 app_server <- function(input, output, session) {
   # Your application server logic
@@ -31,6 +31,16 @@ app_server <- function(input, output, session) {
 
     # Update the reactiveVal with the new data
     uploaded_data(data)
+  })
+
+  # Create a table to store the reformatted dataset
+  formatted_data <- reactiveVal()
+
+  observe({
+    req(uploaded_data())
+    df = uploaded_data() %>%
+      select(filter(c(input$upload, input$species, input$date, input$lon, input$lat)!= ""))
+    formatted_data(df)
   })
 
   # when checkbox for converting grid references is ticked
@@ -79,23 +89,47 @@ observeEvent(input$grid_ref, {
   # Update the uploaded_data reactive value with the extracted longitude and latitude values
   observeEvent(input$grid_ref_convert, {
     req(uploaded_data(), lat_lon(), input$grid_ref_column)
-    df <- uploaded_data()
-    df$lat <- lat_lon()$lat
-    df$long <- lat_lon()$lon
-    uploaded_data(df)
 
+
+    df <- if (all(is.na(formatted_data()))) {
+      formatted_data(df)
+    } else {
+      if ("lat" %in% names(df)) {
+        df <- df %>% select(-lat)
+      }
+
+      if ("lon" %in% names(df)) {
+        df <- df %>% select(-lon)
+      }
+
+      df <- cbind(df, lat_lon())
+
+      uploaded_data(df)
+    }
   })
 
+  #input$upload, input$species, input$date
+
   # create the datatable only when the view data button is clicked
-  view_table <- eventReactive(input$view_button, {
+  view_input_table <- eventReactive(input$view_button, {
     req(input$view_button)
 
     datatable(uploaded_data())
   })
 
+    view_formatted_table <- eventReactive(input$view_button, {
+    req(input$view_button)
+
+    datatable(formatted_data())
+  })
+
   # render the table
-  output$data_table <- DT::renderDT({
-    view_table()
+  output$uploaded_data_table <- DT::renderDT({
+    view_input_table()
+  })
+
+  output$formatted_data_table <- DT::renderDT({
+    view_formatted_table()
   })
 
   mod_data_tab_server("data_tab_1", uploaded_data = uploaded_data)

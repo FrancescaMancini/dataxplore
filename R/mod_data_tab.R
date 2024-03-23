@@ -14,6 +14,9 @@ mod_data_tab_ui <- function(id){
   tagList(
     sidebarLayout(
       sidebarPanel(
+
+        wellPanel(
+
         varSelectInput(
           ns("species"), "Species column",
           data = NULL
@@ -35,20 +38,7 @@ mod_data_tab_ui <- function(id){
         actionButton(
           ns("date_summary_button"), "Dates summary"
         ),
-        varSelectInput(
-          ns("year"), "Year column",
-          data = NULL
-        ),
-        actionButton(
-          ns("year_summary_button"), "Year summary"
-        ),
-        varSelectInput(
-          ns("id"), "Choose the identifier",
-          data = NULL
-        ),
-        actionButton(
-          ns("id_summary_button"), "Identifier summary"
-        ),
+
         varSelectInput(
           ns("lon"), "Longitude column",
           data = NULL
@@ -60,9 +50,22 @@ mod_data_tab_ui <- function(id){
         actionButton(
           ns("coords_summary_button"), "Calculate bounding box"
         ),
+        actionButton(
+          ns("year_summary_button"), "Year summary"
+        ),
+        actionButton(
+          ns("id_summary_button"), "Identifier summary"
+        ),
         checkboxInput(ns("report"), "Add to report",
                       FALSE)
       ),
+      
+        varSelectInput(
+          ns("id"), "Choose the identifier",
+          data = NULL)
+
+      ),
+
       mainPanel(
         h2(textOutput(ns("species_title"))),# add a title for each summary table only if the action button is clicked
         DTOutput(ns("species_summary_table")),

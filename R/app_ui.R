@@ -29,7 +29,8 @@ app_ui <- function(request) {
                      actionButton(
                        "view_button", "View data")),
                    mainPanel(
-                     DTOutput("data_table")
+                    DTOutput("uploaded_data_table"),
+                     DTOutput("formatted_data_table")
                      )
                  ),
                  mod_data_tab_ui("data_tab_1")
