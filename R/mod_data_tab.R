@@ -9,79 +9,33 @@
 #' @import shiny DT spData dplyr vroom tools rnrfa lubridate
 #' @importFrom sf st_coordinates st_sample
 
-mod_data_tab_ui <- function(id){
-  ns <- NS(id)
-  tagList(
-    sidebarLayout(
-      sidebarPanel(
-
-        wellPanel(
-
-        varSelectInput(
-          ns("species"), "Species column",
-          data = NULL
-        ),
-        actionButton(
-          ns("species_summary_button"), "Species summary"
-        ),
-        varSelectInput(
-          ns("date"), "Date column",
-          data = NULL
-        ),
-
-        radioButtons(ns("date_format"), "Select date format (please ignore seperator)",
-                    choices = c("day/month/year" = "format_a",
-                                "month/day/year" = "format_b",
-                                "year/month/day" = "format_c"),
-                    selected = "format_a"),
-        
-        actionButton(
-          ns("date_summary_button"), "Dates summary"
-        ),
-
-        varSelectInput(
-          ns("lon"), "Longitude column",
-          data = NULL
-        ),
-        varSelectInput(
-          ns("lat"), "Latitude column",
-          data = NULL
-        ),
-        actionButton(
-          ns("coords_summary_button"), "Calculate bounding box"
-        ),
-        actionButton(
-          ns("year_summary_button"), "Year summary"
-        ),
-        actionButton(
-          ns("id_summary_button"), "Identifier summary"
-        ),
-        checkboxInput(ns("report"), "Add to report",
-                      FALSE)
-      ),
-      
-        varSelectInput(
-          ns("id"), "Choose the identifier",
-          data = NULL)
-
-      ),
-
-      mainPanel(
-        h2(textOutput(ns("species_title"))),# add a title for each summary table only if the action button is clicked
-        DTOutput(ns("species_summary_table")),
-        h2(textOutput(ns("date_title"))),
-        DTOutput(ns("date_summary_table")),
-        h2(textOutput(ns("year_title"))),
-        DTOutput(ns("year_summary_table")),
-        h2(textOutput(ns("id_title"))),
-        DTOutput(ns("id_summary_table")),
-        h2(textOutput(ns("coords_title"))),
-        DTOutput(ns("coords_summary_table"))
-        )
+mod_data_tab_ui <- function(id) {
+  ns <- NS(id) # Namespace function to use with UI element IDs
+  
+  tagList( # Use tagList for grouping multiple UI elements
+    sidebarPanel(
+      actionButton(ns("species_summary_button"), "Species summary"),
+      actionButton(ns("date_summary_button"), "Dates summary"),
+      actionButton(ns("coords_summary_button"), "Calculate bounding box"),
+      actionButton(ns("year_summary_button"), "Year summary"),
+      checkboxInput(ns("report"), "Add to report", FALSE),
+      varSelectInput(ns("id"), "Choose the identifier", data = NULL),
+      actionButton(ns("id_summary_button"), "Identifier summary")
+    ),
+    mainPanel(
+      h2(textOutput(ns("species_title"))),
+      DTOutput(ns("species_summary_table")),
+      h2(textOutput(ns("date_title"))),
+      DTOutput(ns("date_summary_table")),
+      h2(textOutput(ns("year_title"))),
+      DTOutput(ns("year_summary_table")),
+      h2(textOutput(ns("id_title"))),
+      DTOutput(ns("id_summary_table")),
+      h2(textOutput(ns("coords_title"))),
+      DTOutput(ns("coords_summary_table"))
     )
   )
 }
-
 
 #' data_tab Server Functions
 #'

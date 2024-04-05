@@ -37,10 +37,19 @@ app_server <- function(input, output, session) {
   formatted_data <- reactiveVal()
 
   observe({
+
     req(uploaded_data())
-    df = uploaded_data() %>%
-      select(filter(c(input$upload, input$species, input$date, input$lon, input$lat)!= ""))
-    formatted_data(df)
+    
+    if(any(c(input$species, input$lon, input$lat) != "")){ # I don't understand why the date is NULL...
+
+      col_selections = filter(c(input$species, input$lon, input$lat) != "")
+    
+      df = uploaded_data() %>%
+        select(col_selections)
+
+      formatted_data(df)
+
+    }
   })
 
   # when checkbox for converting grid references is ticked
@@ -90,46 +99,28 @@ observeEvent(input$grid_ref, {
   observeEvent(input$grid_ref_convert, {
     req(uploaded_data(), lat_lon(), input$grid_ref_column)
 
+    df <- formatted_data()
 
-    df <- if (all(is.na(formatted_data()))) {
-      formatted_data(df)
-    } else {
-      if ("lat" %in% names(df)) {
-        df <- df %>% select(-lat)
-      }
-
-      if ("lon" %in% names(df)) {
-        df <- df %>% select(-lon)
-      }
-
-      df <- cbind(df, lat_lon())
-
-      uploaded_data(df)
+    if ("lat" %in% colnames(df)) {
+      df <- df %>% select(-lat)
     }
-  })
 
-  #input$upload, input$species, input$date
+    if ("lon" %in% colnames(df)) {
+      df <- df %>% select(-lon)
+    }
 
-  # create the datatable only when the view data button is clicked
-  view_input_table <- eventReactive(input$view_button, {
-    req(input$view_button)
+    df <- cbind(df, lat_lon())
 
-    datatable(uploaded_data())
-  })
-
-    view_formatted_table <- eventReactive(input$view_button, {
-    req(input$view_button)
-
-    datatable(formatted_data())
+    formatted_data(df)
   })
 
   # render the table
   output$uploaded_data_table <- DT::renderDT({
-    view_input_table()
+    uploaded_data()
   })
 
   output$formatted_data_table <- DT::renderDT({
-    view_formatted_table()
+    formatted_data()
   })
 
   mod_data_tab_server("data_tab_1", uploaded_data = uploaded_data)

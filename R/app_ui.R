@@ -2,9 +2,8 @@
 #'
 #' @param request Internal parameter for `{shiny}`.
 #'     DO NOT REMOVE.
-#' @import shiny
+#' @import shiny, blslib, DT
 #' @noRd
-
 app_ui <- function(request) {
   tagList(
     # Leave this function for adding external resources
@@ -12,92 +11,62 @@ app_ui <- function(request) {
     # Your application UI logic
     navbarPage(
       "dataXplore",
-      tabPanel("Info",
-               mod_info_tab_ui("info_tab_1")
+      tabPanel(
+        "Info",
+        mod_info_tab_ui("info_tab_1")
       ),
-      tabPanel("Data",
-               fluidPage(theme = bslib::bs_theme(bootswatch = "sandstone"),
-                 sidebarLayout(
-                   sidebarPanel(
-                     fileInput("upload",
-                               "Upload your data",
-                               accept=c(".csv", ".txt")),
-                     checkboxInput(
-                       "grid_ref",
-                       "Convert British National Grid References", FALSE),
-                     tags$div(id = 'placeholder'),
-                     actionButton(
-                       "view_button", "View data")),
-                   mainPanel(
-                    DTOutput("uploaded_data_table"),
-                     DTOutput("formatted_data_table")
-                     )
-                 ),
-                 mod_data_tab_ui("data_tab_1")
-               )
+      tabPanel(
+        "Data",
+        sidebarLayout(
+          sidebarPanel(
+            fileInput("upload", "Upload your data", accept = c(".csv", ".txt")),
+            checkboxInput("grid_ref", "Convert British National Grid References", FALSE),
+            tags$div(id = "placeholder"),
+            varSelectInput("species", "Species column", data = NULL),
+            varSelectInput("date", "Date column", data = NULL),
+            radioButtons("date_format", "Select date format (please ignore separator)",
+              choices = c(
+                "day/month/year" = "format_a",
+                "month/day/year" = "format_b",
+                "year/month/day" = "format_c"
+              ),
+              selected = "format_a"
+            ),
+            varSelectInput("lon", "Longitude column", data = NULL),
+            varSelectInput("lat", "Latitude column", data = NULL),
+            mod_data_tab_ui("data_tab_1")
+          ),
+          mainPanel(
+            DTOutput("uploaded_data_table"),
+            DTOutput("formatted_data_table")
+          )
+        )
       ),
-      tabPanel("Time",
-               fluidPage(
-                 theme = bslib::bs_theme(bootswatch = "sandstone"),
-                 mod_time_bias_tab_ui("time_bias_tab_1")
-               )
+      tabPanel(
+        "Time",
+        mod_time_bias_tab_ui("time_bias_tab_1")
       ),
-      tabPanel("Species",
-               tabsetPanel(
-                 tabPanel("Species number",
-                          fluidPage(theme = bslib::bs_theme(bootswatch = "sandstone"),
-                                    mod_species_bias_tab_ui("species_bias_tab_1")
-                          )
-                 ),
-                 tabPanel("Species ID",
-                          fluidPage(theme = bslib::bs_theme(bootswatch = "sandstone"),
-                                    mod_species_id_bias_tab_ui("species_id_bias_tab_1")
-
-                          )
-                 ),
-                 tabPanel("Rarity bias",
-                          fluidPage(theme = bslib::bs_theme(bootswatch = "sandstone"),
-                                    mod_rarity_bias_tab_ui("rarity_bias_tab_1")
-                          )
-                 )
-               ) #Close inner tabsetPanel
+      tabPanel(
+        "Species",
+        tabsetPanel(
+          tabPanel("Species number", mod_species_bias_tab_ui("species_bias_tab_1")),
+          tabPanel("Species ID", mod_species_id_bias_tab_ui("species_id_bias_tab_1")),
+          tabPanel("Rarity bias", mod_rarity_bias_tab_ui("rarity_bias_tab_1"))
+        )
       ),
-      tabPanel("Space",
-               tabsetPanel(
-                 tabPanel("Spatial coverage",
-                          fluidPage(theme = bslib::bs_theme(bootswatch = "sandstone"),
-                                    mod_space_cov_tab_ui("space_cov_tab_1")
-                          )
-                 ),
-                 tabPanel("Spatial bias",
-                          fluidPage(theme = bslib::bs_theme(bootswatch = "sandstone"),
-                                    mod_space_bias_tab_ui("space_bias_tab_1")
-
-                          )
-                 )
-               ) #Close inner tabsetPanel
+      tabPanel(
+        "Space",
+        tabsetPanel(
+          tabPanel("Spatial coverage", mod_space_cov_tab_ui("space_cov_tab_1")),
+          tabPanel("Spatial bias", mod_space_bias_tab_ui("space_bias_tab_1"))
+        )
       ),
-      # tabPanel("Space",
-      #          fluidPage(
-      #            theme = bslib::bs_theme(bootswatch = "sandstone"),
-      #            mod_space_bias_tab_ui("space_bias_tab_1")
-      #          )
-      # ),
-      tabPanel("Environment",
-               fluidPage(
-                 theme = bslib::bs_theme(bootswatch = "sandstone"),
-                 mod_environment_bias_tab_ui("environment_bias_tab_1")
-               )
-      ),
-      tabPanel("Export",
-               fluidPage(
-                 theme = bslib::bs_theme(bootswatch = "sandstone"),
-                 mod_export_tab_ui("export_tab_1")
-               )
-      )
+      tabPanel("Environment", mod_environment_bias_tab_ui("environment_bias_tab_1")),
+      tabPanel("Export", mod_export_tab_ui("export_tab_1"))
     )
   )
 }
+
 
 #' Add external Resources to the Application
 #'
