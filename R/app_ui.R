@@ -2,13 +2,11 @@
 #'
 #' @param request Internal parameter for `{shiny}`.
 #'     DO NOT REMOVE.
-#' @import shiny, blslib, DT
+#' @import shiny bslib DT
 #' @noRd
+
 app_ui <- function(request) {
   tagList(
-    # Leave this function for adding external resources
-    golem_add_external_resources(),
-    # Your application UI logic
     navbarPage(
       "dataXplore",
       tabPanel(
@@ -23,6 +21,7 @@ app_ui <- function(request) {
             checkboxInput("grid_ref", "Convert British National Grid References", FALSE),
             tags$div(id = "placeholder"),
             varSelectInput("species", "Species column", data = NULL),
+            actionButton("species_summary_button", "Species summary"),
             varSelectInput("date", "Date column", data = NULL),
             radioButtons("date_format", "Select date format (please ignore separator)",
               choices = c(
@@ -32,13 +31,28 @@ app_ui <- function(request) {
               ),
               selected = "format_a"
             ),
+            actionButton("date_summary_button", "Dates summary"),
             varSelectInput("lon", "Longitude column", data = NULL),
+            actionButton("coords_summary_button", "Calculate bounding box"),
             varSelectInput("lat", "Latitude column", data = NULL),
-            mod_data_tab_ui("data_tab_1")
+            actionButton("year_summary_button", "Year summary"),
+            checkboxInput("report", "Add to report", FALSE),
+            varSelectInput("id", "Choose the identifier", data = NULL),
+            actionButton("id_summary_button", "Identifier summary")
           ),
           mainPanel(
             DTOutput("uploaded_data_table"),
-            DTOutput("formatted_data_table")
+            DTOutput("formatted_data_table"),
+            h2(textOutput("species_title")),
+            DTOutput("species_summary_table"),
+            h2(textOutput("date_title")),
+            DTOutput("date_summary_table"),
+            h2(textOutput("year_title")),
+            DTOutput("year_summary_table"),
+            h2(textOutput("id_title")),
+            DTOutput("id_summary_table"),
+            h2(textOutput("coords_title")),
+            DTOutput("coords_summary_table")
           )
         )
       ),
@@ -66,7 +80,6 @@ app_ui <- function(request) {
     )
   )
 }
-
 
 #' Add external Resources to the Application
 #'

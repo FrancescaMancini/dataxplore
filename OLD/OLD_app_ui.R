@@ -57,22 +57,6 @@ app_ui <- function(request) {
           data = NULL
         ),
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                  mod_data_tab_ui("data_tab_1")
                )
       ),
