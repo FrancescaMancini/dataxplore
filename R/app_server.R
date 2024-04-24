@@ -218,12 +218,11 @@ app_server <- function(input, output, session) {
 
       lon_lat_names <- c("lat", "lon")
     } else {
-
       lon_lat_names <- as.character(c(input$lat, input$lon))
     }
 
     # Select specified columns, including updated 'lat' and 'lon'
-    cols_to_select <- sapply(c(input$species, input$date, input$id, lon_lat_names), FUN = "as.character", USE.NAMES = FALSE) %>% na.omit()
+    cols_to_select <- sapply(c(input$species, input$date, input$id), FUN = "as.character", USE.NAMES = FALSE) %>% na.omit()
 
     if (length(cols_to_select) > 0) {
       formatted_data <- select(data, cols_to_select)
@@ -237,16 +236,19 @@ app_server <- function(input, output, session) {
       if (!is.null(input$id)) {
         formatted_data <- rename(formatted_data, identifier = input$id)
       }
-
-        if (!is.null(input$lat) | !identical(lon_lat_names, character(0))){
-          formatted_data <- rename(formatted_data, latitude = lon_lat_names[1])
-        }
-        if (!is.null(input$lon) | !identical(lon_lat_names, character(0))){
-          formatted_data <- rename(formatted_data, longitude = lon_lat_names[2])
-        }
-      
     } else {
       formatted_data <- NULL
+    }
+
+    if (length(lon_lat_names) == 2) {
+      if (is.null(formatted_data)) {
+        formatted_data <- select(data, lon_lat_names)
+      } else {
+        formatted_data <- cbind(formatted_data, select(data, lon_lat_names))
+      }
+
+      formatted_data <- rename(formatted_data, latitude = lon_lat_names[1])
+      formatted_data <- rename(formatted_data, longitude = lon_lat_names[2])
     }
 
     formatted_data
