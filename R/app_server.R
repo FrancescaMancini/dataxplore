@@ -6,7 +6,6 @@
 #' @noRd
 
 app_server <- function(input, output, session) {
-
   uploaded_data <- reactiveVal()
 
   # Your application server logic
@@ -195,15 +194,15 @@ app_server <- function(input, output, session) {
     data <- uploaded_data()
 
     # Apply date formatting based on user selection
-    if (!is.null(input$date)){
-    if (input$date_format == "format_a") {
-      date <- lubridate::dmy(data[[input$date]], quiet = TRUE)
-    } else if (input$date_format == "format_b") {
-      date <- lubridate::mdy(data[[input$date]], quiet = TRUE)
-    } else if (input$date_format == "format_c") {
-      date <- lubridate::ymd(data[[input$date]], quiet = TRUE)
-    }}
-    else{
+    if (!is.null(input$date)) {
+      if (input$date_format == "format_a") {
+        date <- lubridate::dmy(data[[input$date]], quiet = TRUE)
+      } else if (input$date_format == "format_b") {
+        date <- lubridate::mdy(data[[input$date]], quiet = TRUE)
+      } else if (input$date_format == "format_c") {
+        date <- lubridate::ymd(data[[input$date]], quiet = TRUE)
+      }
+    } else {
       date <- NA
     }
 
@@ -217,19 +216,40 @@ app_server <- function(input, output, session) {
         data$lon <- conversion_result$lon
       }
 
-      lon_lat_names = c("lat", "lon")
-    }
+      lon_lat_names <- c("lat", "lon")
+    } else {
 
-    else{
-
-      lon_lat_names = c(input$lat, input$lon)
+      lon_lat_names <- as.character(c(input$lat, input$lon))
     }
 
     # Select specified columns, including updated 'lat' and 'lon'
-    cols_to_select <- c(input$species, input$date, input$id) %>%
-      na.omit()
+    cols_to_select <- sapply(c(input$species, input$date, input$id, lon_lat_names), FUN = "as.character", USE.NAMES = FALSE) %>% na.omit()
 
-    if (any(c(input$species, input$date, input$id) != "") ){cbind(data.frame(date = date), select(data, all_of(c(cols_to_select, lon_lat_names))))}
+    if (length(cols_to_select) > 0) {
+      formatted_data <- select(data, cols_to_select)
+
+      if (!is.null(input$species)) {
+        formatted_data <- rename(formatted_data, species = input$species)
+      }
+      if (!is.null(input$date)) {
+        formatted_data <- rename(formatted_data, date = input$date)
+      }
+      if (!is.null(input$id)) {
+        formatted_data <- rename(formatted_data, identifier = input$id)
+      }
+
+        if (!is.null(input$lat) | !identical(lon_lat_names, character(0))){
+          formatted_data <- rename(formatted_data, latitude = lon_lat_names[1])
+        }
+        if (!is.null(input$lon) | !identical(lon_lat_names, character(0))){
+          formatted_data <- rename(formatted_data, longitude = lon_lat_names[2])
+        }
+      
+    } else {
+      formatted_data <- NULL
+    }
+
+    formatted_data
   })
 
   output$formatted_data_table <- renderDT(
