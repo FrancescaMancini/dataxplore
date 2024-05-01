@@ -8,9 +8,6 @@
 app_server <- function(input, output, session) {
   uploaded_data <- reactiveVal()
 
-  # Your application server logic
-  mod_info_tab_server("info_tab_1")
-
   # Handle file upload
   observe({
     req(input$upload)
@@ -30,131 +27,6 @@ app_server <- function(input, output, session) {
     updateVarSelectInput(session, "lon", data = uploaded_data(), selected = character(0))
     updateVarSelectInput(session, "lat", data = uploaded_data(), selected = character(0))
     updateVarSelectInput(session, "id", data = uploaded_data(), selected = character(0))
-  })
-
-  # Species Summary
-  output$species_summary_table <- DT::renderDT({
-    req(input$species, input$species_summary_button)
-    uploaded_data() %>%
-      group_by(.data[[input$species]]) %>%
-      summarise(n_records = n(), .groups = "drop")
-  })
-
-  output$species_title <- renderText("Species Summary")
-
-  date_summary <- reactive({
-    req(input$date, input$date_summary_button)
-    format_str <- switch(input$date_format,
-      "format_a" = "%d/%m/%Y",
-      "format_b" = "%m/%d/%Y",
-      "format_c" = "%Y/%m/%d"
-    )
-    uploaded_data() %>%
-      mutate(date = case_when(
-        input$date_format == "format_a" ~ dmy(.data[[input$date]]),
-        input$date_format == "format_b" ~ mdy(.data[[input$date]]),
-        input$date_format == "format_c" ~ ymd(.data[[input$date]])
-      )) %>%
-      summarise(
-        first_record = min(date, na.rm = TRUE),
-        last_record = max(date, na.rm = TRUE), .groups = "drop"
-      )
-  })
-
-  # Date Summary
-  output$date_summary_table <- DT::renderDT({
-    date_summary()
-  })
-
-  output$date_title <- renderText({
-    req(input$date, input$date_summary_button)
-
-    "Date Summary"
-  })
-
-  # number of records per year
-  year_summary <- reactive({
-    req(uploaded_data(), input$year, input$year_summary_button)
-
-    uploaded_data() %>%
-      group_by(get(input$year)) %>%
-      summarise(n_records = n())
-  })
-
-  output$year_summary_table <- DT::renderDT({
-    year_summary()
-  })
-
-  output$year_title <- renderText({
-    req(uploaded_data(), input$year, input$year_summary_button)
-
-    "Year summary"
-  })
-
-  # number of records per group
-  id_summary <- reactive({
-    req(uploaded_data(), input$id, input$species, input$id_summary_button)
-
-    uploaded_data() %>%
-      group_by(get(input$id)) %>%
-      summarise(
-        n_records = n(),
-        n_species = n_distinct(get(input$species))
-      )
-  })
-
-  output$id_summary_table <- DT::renderDT({
-    id_summary()
-  })
-
-  output$id_title <- renderText({
-    req(uploaded_data(), input$id, input$id_summary_button)
-
-    "Identifier summary"
-  })
-
-  # create the variable summaries
-  # number of records per species
-  species_summary <- reactive({
-    req(uploaded_data(), input$species, input$species_summary_button)
-
-    uploaded_data() %>%
-      group_by(get(input$species)) %>% # get() needed because input$species is a character string
-      summarise(n_records = n())
-  })
-
-  output$species_summary_table <- DT::renderDT({
-    species_summary()
-  })
-
-  output$species_title <- renderText({
-    req(uploaded_data(), input$species, input$species_summary_button)
-
-    "Species summary"
-  })
-
-  # bounding box
-  bbox <- reactive({
-    req(uploaded_data(), input$lat, input$lon, input$coords_summary_button)
-
-    uploaded_data() %>%
-      select(input$lat, input$lon) %>%
-      summarise(
-        lat_min = min(eval(as.name(input$lat))),
-        lat_max = max(eval(as.name(input$lat))),
-        lon_min = min(eval(as.name(input$lon))),
-        lon_max = max(eval(as.name(input$lon)))
-      )
-  })
-
-  output$coords_summary_table <- DT::renderDT({
-    bbox()
-  })
-
-  output$coords_title <- renderText({
-    req(uploaded_data(), input$lat, input$lon, input$coords_summary_button)
-
-    "Bounding box"
   })
 
   # Grid References UI Dynamic Insertion/Removal
@@ -193,19 +65,6 @@ app_server <- function(input, output, session) {
 
     data <- uploaded_data()
 
-    # Apply date formatting based on user selection
-    if (!is.null(input$date)) {
-      if (input$date_format == "format_a") {
-        date <- lubridate::dmy(data[[input$date]], quiet = TRUE)
-      } else if (input$date_format == "format_b") {
-        date <- lubridate::mdy(data[[input$date]], quiet = TRUE)
-      } else if (input$date_format == "format_c") {
-        date <- lubridate::ymd(data[[input$date]], quiet = TRUE)
-      }
-    } else {
-      date <- NA
-    }
-
     # Merge lat_lon_conversion results if they exist
     if (!is.null(lat_lon_conversion())) {
       conversion_result <- lat_lon_conversion()
@@ -232,6 +91,15 @@ app_server <- function(input, output, session) {
       }
       if (!is.null(input$date)) {
         formatted_data <- rename(formatted_data, date = input$date)
+
+        if (input$date_format == "format_a") {
+          formatted_data$date <- lubridate::dmy(data[[input$date]], quiet = TRUE)
+        } else if (input$date_format == "format_b") {
+          formatted_data$date <- lubridate::mdy(data[[input$date]], quiet = TRUE)
+        } else if (input$date_format == "format_c") {
+          formatted_data$date <- lubridate::ymd(data[[input$date]], quiet = TRUE)
+        }
+        formatted_data$year <- year(formatted_data$date)
       }
       if (!is.null(input$id)) {
         formatted_data <- rename(formatted_data, identifier = input$id)
@@ -254,24 +122,39 @@ app_server <- function(input, output, session) {
     formatted_data
   })
 
-  output$formatted_data_table <- renderDT(
-    {
-      reformatted_data()
-    },
-    options = list(pageLength = 5)
-  )
-
+  
   # Render uploaded data table
   output$uploaded_data_table <- DT::renderDT(uploaded_data())
+  # Render formatted data table
+  output$formatted_data_table <- DT::renderDT(reformatted_data())
 
   # Load modules
-  mod_data_tab_server("data_tab_1", uploaded_data = uploaded_data)
-  mod_time_bias_tab_server("time_bias_tab_1", uploaded_data = uploaded_data)
-  mod_species_bias_tab_server("species_bias_tab_1", uploaded_data = uploaded_data)
-  mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data)
-  mod_rarity_bias_tab_server("rarity_bias_tab_1", uploaded_data = uploaded_data)
-  mod_space_cov_tab_server("space_cov_tab_1")
-  mod_space_bias_tab_server("space_bias_tab_1")
-  mod_environment_bias_tab_server("environment_bias_tab_1")
-  mod_export_tab_server("export_tab_1")
+  mod_info_tab_server("info_tab_1")
+  mod_data_tab_server("data_tab_1",
+    uploaded_data = uploaded_data(),
+    user_selections = reactive(list(
+      species = input$species,
+      species_summary_button = input$species_summary_button,
+      date = input$date,
+      date_summary_button = input$date_summary_button,
+      date_format = input$date_format,
+      year = input$year, year_summary_button = input$year_summary_button,
+      id = input$id,
+      id_summary_button = input$id_summary_button,
+      lat = input$lat,
+      lon = input$lon,
+      input$coords_summary_button,
+      grid_ref = input$grid_ref,
+      grid_ref_convert = input$grid_ref_convert,
+      grid_ref_column = input$grid_ref_column
+    ))
+  )
+  # mod_time_bias_tab_server("time_bias_tab_1", uploaded_data = uploaded_data)
+  # mod_species_bias_tab_server("species_bias_tab_1", uploaded_data = uploaded_data)
+  # mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data)
+  # mod_rarity_bias_tab_server("rarity_bias_tab_1", uploaded_data = uploaded_data)
+  # mod_space_cov_tab_server("space_cov_tab_1")
+  # mod_space_bias_tab_server("space_bias_tab_1")
+  # mod_environment_bias_tab_server("environment_bias_tab_1")
+  # mod_export_tab_server("export_tab_1")
 }

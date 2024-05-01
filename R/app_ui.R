@@ -21,7 +21,6 @@ app_ui <- function(request) {
             checkboxInput("grid_ref", "Convert British National Grid References", FALSE),
             tags$div(id = "placeholder"),
             varSelectInput("species", "Species column", data = NULL),
-            actionButton("species_summary_button", "Species summary"),
             varSelectInput("date", "Date column", data = NULL),
             radioButtons("date_format", "Select date format (please ignore separator)",
               choices = c(
@@ -31,18 +30,14 @@ app_ui <- function(request) {
               ),
               selected = "format_a"
             ),
-            actionButton("date_summary_button", "Dates summary"),
             varSelectInput("lon", "Longitude column", data = NULL),
-            actionButton("coords_summary_button", "Calculate bounding box"),
             varSelectInput("lat", "Latitude column", data = NULL),
-            actionButton("year_summary_button", "Year summary"),
-            checkboxInput("report", "Add to report", FALSE),
             varSelectInput("id", "Choose the identifier", data = NULL),
-            actionButton("id_summary_button", "Identifier summary")
           ),
           mainPanel(
             DTOutput("uploaded_data_table"),
             DTOutput("formatted_data_table"),
+            mod_data_tab_ui("data_tab_1"),
             h2(textOutput("species_title")),
             DTOutput("species_summary_table"),
             h2(textOutput("date_title")),
