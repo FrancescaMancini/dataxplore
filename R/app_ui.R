@@ -33,11 +33,12 @@ app_ui <- function(request) {
             varSelectInput("lon", "Longitude column", data = NULL),
             varSelectInput("lat", "Latitude column", data = NULL),
             varSelectInput("id", "Choose the identifier", data = NULL),
+            checkboxInput("report", "Add to report", FALSE)
           ),
           mainPanel(
             DTOutput("uploaded_data_table"),
             DTOutput("formatted_data_table"),
-            mod_data_tab_ui("data_tab_1"),
+            mod_data_tab_ui(id = "data_tab_1"),
             h2(textOutput("species_title")),
             DTOutput("species_summary_table"),
             h2(textOutput("date_title")),
@@ -52,8 +53,7 @@ app_ui <- function(request) {
         )
       ),
       tabPanel(
-        "Time",
-        mod_time_bias_tab_ui("time_bias_tab_1")
+        "Time", mod_time_bias_tab_ui("time_bias_tab_1")
       ),
       tabPanel(
         "Species",

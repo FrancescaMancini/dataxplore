@@ -13,7 +13,9 @@ mod_info_tab_ui <- function(id){
   tagList(
     fluidPage(
       theme = bslib::bs_theme(bootswatch = "sandstone"),
-      mainPanel(h2("What is dataXplore"),
+      mainPanel(
+        
+        h2("What is dataXplore"),
                 textOutput(ns("text1")),
                 h2("How to use dataXplore"),
                 textOutput(ns("text2")),
@@ -31,7 +33,6 @@ mod_info_tab_ui <- function(id){
 #' @noRd
 mod_info_tab_server <- function(id){
   moduleServer( id, function(input, output, session){
-    ns <- session$ns
 
     output$text1 <- renderText({
       random_text(nwords = 100)

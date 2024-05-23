@@ -61,7 +61,7 @@ app_server <- function(input, output, session) {
   })
 
   reformatted_data <- reactive({
-    req(uploaded_data(), ) # Ensure there's uploaded data
+    req(uploaded_data()) # Ensure there's uploaded data
 
     data <- uploaded_data()
 
@@ -122,39 +122,92 @@ app_server <- function(input, output, session) {
     formatted_data
   })
 
-  
   # Render uploaded data table
   output$uploaded_data_table <- DT::renderDT(uploaded_data())
   # Render formatted data table
   output$formatted_data_table <- DT::renderDT(reformatted_data())
+  
+  # Initialize reactiveValues
+  input_tracker <- reactiveValues(
+    species = NULL,
+    date = NULL,
+    date_format = NULL,
+    year = NULL,
+    id = NULL,
+    lat = NULL,
+    lon = NULL,
+    grid_ref = NULL,
+    grid_ref_convert = NULL,
+    grid_ref_column = NULL
+  )
+  
+  # Update reactiveValues when inputs change
+  observe({
+    input_tracker$species <- input$species
+  })
+  
+  observe({
+    input_tracker$date <- input$date
+  })
+  
+  observe({
+    input_tracker$date_format <- input$date_format
+  })
+  
+  observe({
+    input_tracker$year <- input$year
+  })
+  
+  observe({
+    input_tracker$id <- input$id
+  })
+    
+  observe({
+    input_tracker$lat <- input$lat
+  })
+  
+  observe({
+    input_tracker$lon <- input$lon
+  })
+  
+  observe({
+    input_tracker$grid_ref <- input$grid_ref
+  })
+  
+  observe({
+    input_tracker$grid_ref_convert <- input$grid_ref_convert
+  })
+  
+  observe({
+    input_tracker$grid_ref_column <- input$grid_ref_column
+  })
+
+  # Reactive wrapper for input_tracker
+  user_selections <- reactive({
+    list(
+      species = input_tracker$species,
+      date = input_tracker$date,
+      date_format = input_tracker$date_format,
+      year = input_tracker$year,
+      id = input_tracker$id,
+      lat = input_tracker$lat,
+      lon = input_tracker$lon,
+      grid_ref = input_tracker$grid_ref,
+      grid_ref_convert = input_tracker$grid_ref_convert,
+      grid_ref_column = input_tracker$grid_ref_column
+    )
+  })
 
   # Load modules
-  mod_info_tab_server("info_tab_1")
-  mod_data_tab_server("data_tab_1",
-    uploaded_data = uploaded_data(),
-    user_selections = reactive(list(
-      species = input$species,
-      species_summary_button = input$species_summary_button,
-      date = input$date,
-      date_summary_button = input$date_summary_button,
-      date_format = input$date_format,
-      year = input$year, year_summary_button = input$year_summary_button,
-      id = input$id,
-      id_summary_button = input$id_summary_button,
-      lat = input$lat,
-      lon = input$lon,
-      input$coords_summary_button,
-      grid_ref = input$grid_ref,
-      grid_ref_convert = input$grid_ref_convert,
-      grid_ref_column = input$grid_ref_column
-    ))
-  )
-  # mod_time_bias_tab_server("time_bias_tab_1", uploaded_data = uploaded_data)
-  # mod_species_bias_tab_server("species_bias_tab_1", uploaded_data = uploaded_data)
-  # mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data)
-  # mod_rarity_bias_tab_server("rarity_bias_tab_1", uploaded_data = uploaded_data)
-  # mod_space_cov_tab_server("space_cov_tab_1")
-  # mod_space_bias_tab_server("space_bias_tab_1")
-  # mod_environment_bias_tab_server("environment_bias_tab_1")
-  # mod_export_tab_server("export_tab_1")
+  mod_info_tab_server("info_tab_1")  
+  mod_data_tab_server(id = "data_tab_1", user_selections = user_selections, uploaded_data = uploaded_data)
+
+  #mod_time_bias_tab_server("time_bias_tab_1", reformatted_data = reformatted_data())
+  #   mod_species_bias_tab_server("species_bias_tab_1", uploaded_data = uploaded_data)
+  #   mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data)
+  #   mod_rarity_bias_tab_server("rarity_bias_tab_1", uploaded_data = uploaded_data)
+  #   mod_space_cov_tab_server("space_cov_tab_1")
+  #   mod_space_bias_tab_server("space_bias_tab_1")
+  #   mod_environment_bias_tab_server("environment_bias_tab_1")
+  #   mod_export_tab_server("export_tab_1")
 }
