@@ -202,8 +202,8 @@ app_server <- function(input, output, session) {
   mod_info_tab_server("info_tab_1")  
   mod_data_tab_server(id = "data_tab_1", user_selections = user_selections, uploaded_data = uploaded_data)
   mod_time_bias_tab_server("time_bias_tab_1", reformatted_data = reformatted_data)
-  
-  mod_species_bias_tab_server("species_bias_tab_1", uploaded_data = uploaded_data)
+  mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data)
+
   mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data)
   mod_rarity_bias_tab_server("rarity_bias_tab_1", uploaded_data = uploaded_data)
   mod_space_cov_tab_server("space_cov_tab_1")

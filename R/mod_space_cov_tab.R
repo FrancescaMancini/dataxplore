@@ -16,35 +16,11 @@ mod_space_cov_tab_ui <- function(id){
                      "Time periods",
                      value = 1, min = 1, max = Inf
         ),
-        # dateRangeInput(
-          # "periods",
-        # "Choose date range"
-        # ),
         uiOutput(ns("dateRangesUI")
-        ),
-        selectInput(
-          "species", "Species column",
-          c("", "species", "date", "x", "y", "group", "year"), # eventually replace the values with colnames of the dataset
-        ),
-        selectInput(
-          "lon", "Longitude column",
-          c("", "species", "date", "x", "y", "group", "year"), # eventually replace the values with colnames of the dataset
-        ),
-        selectInput(
-          "lat", "Latitude column",
-          c("", "species", "date", "x", "y", "group", "year"), # eventually replace the values with colnames of the dataset
         ),
         textInput(
           "res", "Spatial resolution",
           value = 1000
-        ),
-        selectInput(
-          "year", "Year column",
-          c("", "species", "date", "x", "y", "group", "year"), # eventually replace the values with colnames of the dataset
-        ),
-        selectInput(
-          "id", "Choose the identifier",
-          c("", "species", "date", "x", "y", "group", "year"), # eventually replace the values with colnames of the dataset
         ),
         selectInput(
           "country", "Country",
