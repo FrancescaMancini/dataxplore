@@ -202,12 +202,17 @@ app_server <- function(input, output, session) {
   mod_info_tab_server("info_tab_1")  
   mod_data_tab_server(id = "data_tab_1", user_selections = user_selections, uploaded_data = uploaded_data)
   mod_time_bias_tab_server("time_bias_tab_1", reformatted_data = reformatted_data)
-  mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data)
 
-  mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data)
-  mod_rarity_bias_tab_server("rarity_bias_tab_1", uploaded_data = uploaded_data)
-  mod_space_cov_tab_server("space_cov_tab_1")
-  mod_space_bias_tab_server("space_bias_tab_1")
-  mod_environment_bias_tab_server("environment_bias_tab_1")
-  mod_export_tab_server("export_tab_1")
+  # Note we save module_outputs to extract spatial uncertainty
+  module_outputs <- mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data)
+  mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data, module_outputs = module_outputs, reformatted_data = reformatted_data)
+
+  #module_outputs$spat_uncert()
+
+  #mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data, user_selections = user_selections)
+  # mod_rarity_bias_tab_server("rarity_bias_tab_1", uploaded_data = uploaded_data)
+  # mod_space_cov_tab_server("space_cov_tab_1")
+  # mod_space_bias_tab_server("space_bias_tab_1")
+  # mod_environment_bias_tab_server("environment_bias_tab_1")
+  # mod_export_tab_server("export_tab_1")
 }

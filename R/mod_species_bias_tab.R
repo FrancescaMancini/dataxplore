@@ -102,10 +102,9 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
     input$max_spat_uncert,
     input$norm, uploaded_data())
 
-  cleaned_data = uploaded_data() %>% select(input$spat_uncert) %>% cbind(reformatted_data())
-
-  # Remove rows with NA values in the year column
-  cleaned_data <- cleaned_data %>%
+  cleaned_data = uploaded_data() %>%
+   select(input$spat_uncert) %>%
+    cbind(reformatted_data()) %>%
     filter(!is.na(year))
   
   # Notify the user about the number of rows filtered
@@ -133,16 +132,6 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
   }
 
   output$species_num_plot <- renderPlot({
-
-  # # Remove rows with NA values in the year column
-  # cleaned_data <- reformatted_data() %>%
-  #   filter(!is.na(year))
-  
-  # Notify the user about the number of rows filtered
-  num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
-  if (num_filtered > 0) {
-    showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
-  }
 
     if (input$periodtype == "ranges") {
 
@@ -175,6 +164,12 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
       normalize = ifelse(input$norm == "Yes", TRUE, FALSE))$plot
       })
     })
+
+    # Return the spatial uncertainty column
+    return(reactive(list(
+    spat_uncert = input$spat_uncert
+    )))
+
   })
 }
 
