@@ -1,4 +1,4 @@
-#' species_id_bias_tab UI Function
+#' species rarity bias tab UI Function
 #'
 #' @description A shiny Module.
 #'
@@ -7,7 +7,7 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
-mod_species_id_bias_tab_ui <- function(id){
+mod_species_rarity_bias_tab_ui <- function(id){
   ns <- NS(id)
   tagList(
     sidebarLayout(
@@ -24,43 +24,51 @@ mod_species_id_bias_tab_ui <- function(id){
           ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
           value = 10000,
         ),
+        numericInput(
+          ns("res"), "Resolution",
+          value = 10000,
+        ),
         selectInput(
-          ns("type"), "Type",
-          choices = c("count", "proportion")
+          ns("prev"), "Calculate prevalence per period",
+          choices = c("Yes", "No")
+        ),
+        selectInput(
+          ns("metric"), "Metric",
+          choices = c("Coefficient of variation",
+                      "Pearson's correlation")
         ),
         actionButton(
           ns("plot_button"), "Plot"
         ),
-        # checkboxInput("code", "View R code"
-        # ),
         checkboxInput("report", "Add to report", FALSE)
       ),
       mainPanel(
         h2(
           span(
-            "Species ID",
+            "Rarity bias",
             tooltip(
               bs_icon("info-circle"),
-              "The plot displays the number of records identified to species level in each time period.
-              Records are considered not identified to species level if they take the value NA",
+              "The plot displays the rarity bias index in each time period.
+              The index can be used to assess the degree to which rare species are oversampled relative to commoner species and whether this changes over time.
+              If metric is R2, values close to 0 indicate high bias and values close to 1 indicate low bias.
+              If metric is Pearson, values close to -1 indicate high bias and values close to 1 indicate low bias",
               placement = "bottom"
             )
           )),
-        plotOutput(ns("species_id_plot"))
+        plotOutput(ns("rarity_plot"))
 
       )
     )
-
   )
 }
 
-#' species_id_bias_tab Server Functions
+#' rarity_bias_tab Server Functions
 #'
 #' @noRd
-mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, reformatted_data){
+mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs, reformatted_data){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
-
+    
     output$numUI <- renderUI({
       req(input$periodtype == "ranges")
       numericInput(
@@ -88,13 +96,12 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, re
       tagList(dateRanges)
     })
 
- observeEvent(input$plot_button, {
+    observeEvent(input$plot_button, {
+      req(module_outputs()$spat_uncert,
+          input$max_spat_uncert, input$res,
+          input$prev, input$metric, reformatted_data())
 
-  req(module_outputs()$spat_uncert,
-    input$max_spat_uncert,
-    input$type, reformatted_data())
-
-  cleaned_data = uploaded_data() %>%
+        cleaned_data = uploaded_data() %>%
    select(module_outputs()$spat_uncert) %>%
     cbind(reformatted_data()) %>%
     filter(!is.na(year))
@@ -123,7 +130,8 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, re
     periods <- sort(unique(cleaned_data$year)) #list(min(cleaned_data$year:max(cleaned_data$year)))
   }
 
-      output$species_id_plot <- renderPlot({
+
+       output$rarity_plot <- renderPlot({
 
         if (input$periodtype == "ranges") {
 
@@ -143,7 +151,7 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, re
 
         }
 
-        assessSpeciesID(
+        assessRarityBias(
           dat = cleaned_data,
           species = "species",
           periods = periods,
@@ -153,7 +161,9 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, re
           spatialUncertainty = module_outputs()$spat_uncert,
           identifier = "identifier",
           maxSpatUncertainty = input$max_spat_uncert,
-          type = input$type
+          res = input$res,
+          prevPerPeriod = ifelse(input$prev == "Yes", TRUE, FALSE),
+          metric = ifelse(input$metric == "Coefficient of variation", "r2", "cor")
         )$plot
       })
     })

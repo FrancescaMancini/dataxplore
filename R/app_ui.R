@@ -60,7 +60,7 @@ app_ui <- function(request) {
         tabsetPanel(
           tabPanel("Species number", mod_species_bias_tab_ui("species_bias_tab_1")),
           tabPanel("Species ID", mod_species_id_bias_tab_ui("species_id_bias_tab_1")),
-          tabPanel("Rarity bias", mod_rarity_bias_tab_ui("rarity_bias_tab_1"))
+          tabPanel("Rarity bias", mod_species_rarity_bias_tab_ui("species_rarity_bias_tab_1"))
         )
       ),
       tabPanel(
