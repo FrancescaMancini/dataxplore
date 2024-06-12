@@ -142,13 +142,17 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
             )
           }
 
-          # Check for overlapping periods
-          for(i in 1:(length(periods) - 1)) {
-            validate(
-              need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
-            )
-          }
 
+          if (length(periods) > 1){
+
+            # Check for overlapping periods
+            for(i in 1:(length(periods) - 1)) {
+              validate(
+                need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
+              )
+            }
+          
+          }
         }
 
         assessRarityBias(
@@ -169,7 +173,3 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
     })
   })
 }
-
-## To be copied in the UI
-
-## To be copied in the server

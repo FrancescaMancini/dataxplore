@@ -208,7 +208,7 @@ app_server <- function(input, output, session) {
   mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data, module_outputs = module_outputs, reformatted_data = reformatted_data)
   mod_species_rarity_bias_tab_server("species_rarity_bias_tab_1", uploaded_data = uploaded_data, module_outputs = module_outputs, reformatted_data = reformatted_data)
   
-  # mod_space_cov_tab_server("space_cov_tab_1")
+  mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data)
   # mod_space_bias_tab_server("space_bias_tab_1")
   # mod_environment_bias_tab_server("environment_bias_tab_1")
   # mod_export_tab_server("export_tab_1")

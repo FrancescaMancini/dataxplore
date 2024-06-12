@@ -141,14 +141,17 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
           need(min(period) == period[1] && max(period) == period[length(period)], "Period years are not in ascending order.")
         )
       }
-      
-      # Check for overlapping periods
-      for(i in 1:(length(periods) - 1)) {
-        validate(
-          need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
-        )
-      }
 
+      if (length(periods) > 1){
+
+        # Check for overlapping periods
+        for(i in 1:(length(periods) - 1)) {
+          validate(
+            need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
+          )
+        }
+      
+      }
     }
 
     assessSpeciesNumber(

@@ -11,44 +11,8 @@
 #' @importFrom bslib tooltip
 #' @importFrom bsicons bs_icon
 #' @importFrom shinyWidgets numericRangeInput
-#' 
+
 # UI Function
-# UI Function
-mod_time_bias_tab_ui <- function(id) {
-  ns <- NS(id)
-  
-  tagList(
-    sidebarLayout(
-      sidebarPanel(
-        radioButtons(
-          ns("periodtype"), "Time periods as",
-          choiceNames = list("Years", "Year ranges"),
-          choiceValues = list("years", "ranges"),
-          selected = "years"
-        ),
-        uiOutput(ns("numUI")),
-        uiOutput(ns("dateRangesUI")),
-        actionButton(
-          ns("plot_button"), "Plot"
-        ),
-        checkboxInput(ns("report"), "Add to report", FALSE)
-      ),
-      mainPanel(
-        h2(
-          span(
-            "Record number",
-            tooltip(
-              bs_icon("info-circle"),
-              "The plot displays the number of records in each time period.",
-              placement = "bottom"
-            )
-          )
-        ),
-        plotOutput(ns("number_records"))
-      )
-    )
-  )
-}
 
 mod_time_bias_tab_ui <- function(id) {
   ns <- NS(id)
@@ -87,13 +51,13 @@ mod_time_bias_tab_ui <- function(id) {
 }
 
 # Server Function
+
 mod_time_bias_tab_server <- function(id, reformatted_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     output$numUI <- renderUI({
       req(input$periodtype == "ranges")
-      
       numericInput(
         ns("num"), "Time periods",
         value = 1, min = 1, max = Inf
@@ -120,6 +84,7 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
     })
 
     observeEvent(input$plot_button, {
+      req(reformatted_data())
 
       # Remove rows with NA values in the year column
       cleaned_data <- reformatted_data() %>%
@@ -132,7 +97,6 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
       }
 
       if (input$periodtype == "ranges") {
-
         ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
         
         # Retrieve the year ranges from the inputs
@@ -144,29 +108,29 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
           to <- range[2]
           return(seq(from = from, to = to))
         })
-
       } else {
         periods <- sort(unique(cleaned_data$year)) #list(min(cleaned_data$year:max(cleaned_data$year)))
       }
 
       output$number_records <- renderPlot({
-
         if (input$periodtype == "ranges") {
-
           # Check for increasing years within each period
           for(period in periods) {
             validate(
               need(min(period) == period[1] && max(period) == period[length(period)], "Period years are not in ascending order.")
             )
           }
-          
-          # Check for overlapping periods
-          for(i in 1:(length(periods) - 1)) {
-            validate(
-              need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
-            )
-          }
 
+          if (length(periods) > 1){
+
+            # Check for overlapping periods
+            for(i in 1:(length(periods) - 1)) {
+              validate(
+                need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
+              )
+            }
+          
+          }
         }
 
         assessRecordNumber(
