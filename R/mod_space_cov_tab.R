@@ -7,8 +7,8 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
-#' @import sf
-#' 
+#' @importFrom methods as
+#'
 mod_space_cov_tab_ui <- function(id){
   ns <- NS(id)
   tagList(
@@ -56,14 +56,14 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
 
     output$dateRangesUI <- renderUI({
       req(input$periodtype == "ranges", input$num)
-      
+
       min_year <- reformatted_data() %>%
         summarise(min_year = min(year, na.rm = TRUE)) %>%
         pull(min_year)
       max_year <- reformatted_data() %>%
         summarise(max_year = max(year, na.rm = TRUE)) %>%
         pull(max_year)
-      
+
       dateRanges <- lapply(1:input$num, function(i) {
         numericRangeInput(ns(paste0("dates_", i)),
           label = paste("Year range", i),
@@ -75,10 +75,10 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
 
    shape_file <- reactive({
       req(input$shapefile)
-      
+
       # Temporary directory where files are uploaded
       tempdirname <- dirname(input$shapefile$datapath[1])
-      
+
       # Rename files
       for (i in 1:nrow(input$shapefile)) {
         file.rename(
@@ -86,17 +86,17 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
           paste0(tempdirname, "/", input$shapefile$name[i])
         )
       }
-      
+
       # Read the shapefile using st_read from sf package
       shape_input <- sf::st_read(paste(tempdirname,
                                    input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
                                    sep = "/"))
-      
+
       # Transform the CRS if necessary
       shape_input <- sf::st_transform(shape_input, crs = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-      
+
       # Convert the sf object to a Spatial object
-      sf::as_spatial(shape_input)
+      methods::as(shape_input, "Spatial")
     })
 
     observeEvent(input$plot_button, {
@@ -115,7 +115,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
   if (input$periodtype == "ranges") {
 
     ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-    
+
     # Retrieve the year ranges from the inputs
     year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
 
@@ -148,11 +148,11 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
                 need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
               )
             }
-          
+
           }
         }
 
-        assessSpatialCov(dat = cleaned_data,
+        spat_cov = assessSpatialCov(dat = cleaned_data,
                          periods = periods,
                          res = input$res,
                          logCount = input$log,
@@ -160,11 +160,13 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
                          species = "species",
                          x = "latitude",
                          y = "longitude",
-                         year = "year", 
+                         year = "year",
                          spatialUncertainty = NULL,
                          maxSpatUncertainty = NULL,
                          identifier = "identifier",
                          output = input$output)
+
+        do.call(ggpubr::ggarrange, spat_cov)
       })
     })
   })
