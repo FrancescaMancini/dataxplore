@@ -6,3 +6,5 @@
 .quarto
 dylan_dev_file.R
 example_data.csv
+bwars_for_shiny.csv
+errors_data.csv

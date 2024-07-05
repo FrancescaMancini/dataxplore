@@ -6,6 +6,10 @@
 #' @noRd
 
 app_server <- function(input, output, session) {
+
+  # increase memory to accommodate larger tables
+  options(shiny.maxRequestSize=500*1024^2)
+
   uploaded_data <- reactiveVal()
 
   # Handle file upload

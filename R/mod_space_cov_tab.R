@@ -27,7 +27,7 @@ mod_space_cov_tab_ui <- function(id){
         fileInput(ns("shapefile"), "Choose a Shapefile",
                   accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE),
         selectInput(ns("log"), "Log count", c("TRUE", "FALSE"), selected = FALSE),
-        selectInput(ns("output"), "Output", c("Density", "Overlap", "Number of periods")),
+        selectInput(ns("output"), "Output", c("density", "Overlap", "Number of periods")),
         actionButton(ns("plot_button"), "Plot"),
         checkboxInput(ns("report"), "Add to report", FALSE)
       ),
@@ -92,10 +92,10 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
                                    input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
                                    sep = "/"))
 
-      # Transform the CRS if necessary
-      shape_input <- sf::st_transform(shape_input, crs = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+    # Transform the CRS to WGS 84 (decimal degrees)
+    shape_input <- sf::st_transform(shape_input, crs = 4326)
 
-      # Convert the sf object to a Spatial object
+        # Convert the sf object to a Spatial object
       methods::as(shape_input, "Spatial")
     })
 
@@ -127,7 +127,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
     })
 
   } else {
-    periods <- sort(unique(cleaned_data$year)) #list(min(cleaned_data$year:max(cleaned_data$year)))
+    periods <- as.list(sort(unique(cleaned_data$year))) #list(min(cleaned_data$year:max(cleaned_data$year)))
   }
 
       output$space_cov_plot <- renderPlot({
@@ -158,15 +158,19 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
                          logCount = input$log,
                          shp = shape_file(),
                          species = "species",
-                         x = "latitude",
-                         y = "longitude",
+                         x = "longitude",
+                         y = "latitude",
                          year = "year",
                          spatialUncertainty = NULL,
                          maxSpatUncertainty = NULL,
                          identifier = "identifier",
                          output = input$output)
 
-        do.call(ggpubr::ggarrange, spat_cov)
+        plot = do.call(ggpubr::ggarrange, spat_cov)
+
+        plot
+
+
       })
     })
   })
