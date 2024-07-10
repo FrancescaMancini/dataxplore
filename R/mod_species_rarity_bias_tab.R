@@ -96,48 +96,58 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
     })
 
     plot_data <- eventReactive(input$plot_button, {
-      req(module_outputs()$spat_uncert,
-          input$max_spat_uncert, input$res,
-          input$prev, input$metric, reformatted_data())
+      withProgress(message = 'Generating plot...', value = 0, {
+        req(module_outputs()$spat_uncert,
+            input$max_spat_uncert, input$res,
+            input$prev, input$metric, reformatted_data())
 
-      cleaned_data <- uploaded_data() %>%
-        select(module_outputs()$spat_uncert) %>%
-        cbind(reformatted_data()) %>%
-        filter(!is.na(year))
-      
-      num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
-      if (num_filtered > 0) {
-        showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
-      }
+        incProgress(0.2, detail = "Processing data...")
 
-      if (input$periodtype == "ranges") {
-        ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-        year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-        periods <- lapply(year_ranges, function(range) {
-          from <- range[1]
-          to <- range[2]
-          return(seq(from = from, to = to))
-        })
-      } else {
-        periods <- sort(unique(cleaned_data$year))
-      }
+        cleaned_data <- uploaded_data() %>%
+          select(module_outputs()$spat_uncert) %>%
+          cbind(reformatted_data()) %>%
+          filter(!is.na(year))
+        
+        num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
+        if (num_filtered > 0) {
+          showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
+        }
 
-      plot <- assessRarityBias(
-        dat = cleaned_data,
-        species = "species",
-        periods = periods,
-        x = "longitude",
-        y = "latitude",
-        year = "year",
-        spatialUncertainty = module_outputs()$spat_uncert,
-        identifier = "identifier",
-        maxSpatUncertainty = input$max_spat_uncert,
-        res = input$res,
-        prevPerPeriod = ifelse(input$prev == "Yes", TRUE, FALSE),
-        metric = ifelse(input$metric == "Coefficient of variation", "r2", "cor")
-      )$plot
+        incProgress(0.4, detail = "Preparing time periods...")
 
-      list(plot = plot)
+        if (input$periodtype == "ranges") {
+          ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+          year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+          periods <- lapply(year_ranges, function(range) {
+            from <- range[1]
+            to <- range[2]
+            return(seq(from = from, to = to))
+          })
+        } else {
+          periods <- sort(unique(cleaned_data$year))
+        }
+
+        incProgress(0.6, detail = "Calculating rarity bias...")
+
+        plot <- assessRarityBias(
+          dat = cleaned_data,
+          species = "species",
+          periods = periods,
+          x = "longitude",
+          y = "latitude",
+          year = "year",
+          spatialUncertainty = module_outputs()$spat_uncert,
+          identifier = "identifier",
+          maxSpatUncertainty = input$max_spat_uncert,
+          res = input$res,
+          prevPerPeriod = ifelse(input$prev == "Yes", TRUE, FALSE),
+          metric = ifelse(input$metric == "Coefficient of variation", "r2", "cor")
+        )$plot
+
+        incProgress(0.8, detail = "Finalizing plot...", detail = "Please note, this may take some time for larger datasets")
+
+        list(plot = plot)
+      })
     })
 
     output$rarity_plot <- renderPlot({
