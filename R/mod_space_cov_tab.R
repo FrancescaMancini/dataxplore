@@ -46,7 +46,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
-      output$numUI <- renderUI({
+    output$numUI <- renderUI({
       req(input$periodtype == "ranges")
       numericInput(
         ns("num"), "Time periods",
@@ -73,7 +73,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
       tagList(dateRanges)
     })
 
-   shape_file <- reactive({
+    shape_file <- reactive({
       req(input$shapefile)
 
       # Temporary directory where files are uploaded
@@ -92,86 +92,59 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
                                    input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
                                    sep = "/"))
 
-    # Transform the CRS to WGS 84 (decimal degrees)
-    shape_input <- sf::st_transform(shape_input, crs = 4326)
+      # Transform the CRS to WGS 84 (decimal degrees)
+      shape_input <- sf::st_transform(shape_input, crs = 4326)
 
-        # Convert the sf object to a Spatial object
+      # Convert the sf object to a Spatial object
       methods::as(shape_input, "Spatial")
     })
 
-    observeEvent(input$plot_button, {
-
+    plot_data <- eventReactive(input$plot_button, {
       req(input$res, input$output)
 
-      cleaned_data = reformatted_data() %>%
-      filter(!is.na(year))
+      cleaned_data <- reformatted_data() %>%
+        filter(!is.na(year))
+      
+      num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
+      if (num_filtered > 0) {
+        showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
+      }
 
- # Notify the user about the number of rows filtered
-  num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
-  if (num_filtered > 0) {
-    showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
-  }
+      if (input$periodtype == "ranges") {
+        ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+        year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+        periods <- lapply(year_ranges, function(range) {
+          from <- range[1]
+          to <- range[2]
+          return(seq(from = from, to = to))
+        })
+      } else {
+        periods <- as.list(sort(unique(cleaned_data$year)))
+      }
 
-  if (input$periodtype == "ranges") {
+      spat_cov <- assessSpatialCov(
+        dat = cleaned_data,
+        periods = periods,
+        res = input$res,
+        logCount = input$log,
+        shp = shape_file(),
+        species = "species",
+        x = "longitude",
+        y = "latitude",
+        year = "year",
+        spatialUncertainty = NULL,
+        maxSpatUncertainty = NULL,
+        identifier = "identifier",
+        output = input$output
+      )
 
-    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+      plot <- do.call(ggpubr::ggarrange, spat_cov)
 
-    # Retrieve the year ranges from the inputs
-    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-
-    # Convert the year_ranges into vectors with year intervals of 1
-    periods <- lapply(year_ranges, function(range) {
-      from <- range[1]
-      to <- range[2]
-      return(seq(from = from, to = to))
+      list(plot = plot)
     })
 
-  } else {
-    periods <- as.list(sort(unique(cleaned_data$year))) #list(min(cleaned_data$year:max(cleaned_data$year)))
-  }
-
-      output$space_cov_plot <- renderPlot({
-        if (input$periodtype == "ranges") {
-
-          # Check for increasing years within each period
-          for(period in periods) {
-            validate(
-              need(min(period) == period[1] && max(period) == period[length(period)], "Period years are not in ascending order.")
-            )
-          }
-
-          if (length(periods) > 1){
-
-            # Check for overlapping periods
-            for(i in 1:(length(periods) - 1)) {
-              validate(
-                need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
-              )
-            }
-
-          }
-        }
-
-        spat_cov = assessSpatialCov(dat = cleaned_data,
-                         periods = periods,
-                         res = input$res,
-                         logCount = input$log,
-                         shp = shape_file(),
-                         species = "species",
-                         x = "longitude",
-                         y = "latitude",
-                         year = "year",
-                         spatialUncertainty = NULL,
-                         maxSpatUncertainty = NULL,
-                         identifier = "identifier",
-                         output = input$output)
-
-        plot = do.call(ggpubr::ggarrange, spat_cov)
-
-        plot
-
-
-      })
+    output$space_cov_plot <- renderPlot({
+      plot_data()$plot
     })
   })
 }

@@ -24,14 +24,14 @@ mod_species_bias_tab_ui <- function(id){
           ns("spat_uncert"), "Spatial Uncertainty column",
           choices = NULL
         ),
-      numericInput(
-        ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
-        value = 10000,
-      ),
-      selectInput(
-        ns("norm"), "Normalize",
-        choices = c("Yes", "No")
-      ),
+        numericInput(
+          ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
+          value = 10000
+        ),
+        selectInput(
+          ns("norm"), "Normalize",
+          choices = c("Yes", "No")
+        ),
         actionButton(
           ns("plot_button"), "Plot"
         ),
@@ -48,25 +48,20 @@ mod_species_bias_tab_ui <- function(id){
             )
           )),
         plotOutput(ns("species_num_plot"))
-        )
       )
     )
+  )
 }
 
-#' species_bias_tab Server Functions
-#'
-#' @noRd
 mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
-  moduleServer( id, function(input, output, session){
+  moduleServer(id, function(input, output, session){
     ns <- session$ns
 
     observeEvent(uploaded_data(), {
-
       updateSelectInput(session, "spat_uncert",
                         choices = names(uploaded_data()),
                         selected = character(0)
       )
-
     })
 
     output$numUI <- renderUI({
@@ -89,90 +84,61 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
       
       dateRanges <- lapply(1:input$num, function(i) {
         numericRangeInput(ns(paste0("dates_", i)),
-          label = paste("Year range", i),
-          value = c(min_year, max_year)
+                          label = paste("Year range", i),
+                          value = c(min_year, max_year)
         )
       })
       tagList(dateRanges)
     })
 
- observeEvent(input$plot_button, {
+    plot_data <- eventReactive(input$plot_button, {
+      req(input$spat_uncert, input$max_spat_uncert, input$norm, uploaded_data())
 
-  req(input$spat_uncert,
-    input$max_spat_uncert,
-    input$norm, uploaded_data())
-
-  cleaned_data = uploaded_data() %>%
-   select(input$spat_uncert) %>%
-    cbind(reformatted_data()) %>%
-    filter(!is.na(year))
-  
-  # Notify the user about the number of rows filtered
-  num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
-  if (num_filtered > 0) {
-    showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
-  }
-
-  if (input$periodtype == "ranges") {
-
-    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-    
-    # Retrieve the year ranges from the inputs
-    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-
-    # Convert the year_ranges into vectors with year intervals of 1
-    periods <- lapply(year_ranges, function(range) {
-      from <- range[1]
-      to <- range[2]
-      return(seq(from = from, to = to))
-    })
-
-  } else {
-    periods <- sort(unique(cleaned_data$year)) #list(min(cleaned_data$year:max(cleaned_data$year)))
-  }
-
-  output$species_num_plot <- renderPlot({
-
-    if (input$periodtype == "ranges") {
-
-      # Check for increasing years within each period
-      for(period in periods) {
-        validate(
-          need(min(period) == period[1] && max(period) == period[length(period)], "Period years are not in ascending order.")
-        )
-      }
-
-      if (length(periods) > 1){
-
-        # Check for overlapping periods
-        for(i in 1:(length(periods) - 1)) {
-          validate(
-            need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
-          )
-        }
+      cleaned_data <- uploaded_data() %>%
+        select(input$spat_uncert) %>%
+        cbind(reformatted_data()) %>%
+        filter(!is.na(year))
       
+      num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
+      if (num_filtered > 0) {
+        showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
       }
-    }
 
-    assessSpeciesNumber(
-      dat = cleaned_data,
-      species = "species",
-      periods = periods,
-      x = "longitude",
-      y = "latitude",
-      year = "year",
-      spatialUncertainty = input$spat_uncert,
-      identifier = "identifier",
-      maxSpatUncertainty = input$max_spat_uncert,
-      normalize = ifelse(input$norm == "Yes", TRUE, FALSE))$plot
-      })
+      if (input$periodtype == "ranges") {
+        ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+        year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+        periods <- lapply(year_ranges, function(range) {
+          from <- range[1]
+          to <- range[2]
+          return(seq(from = from, to = to))
+        })
+      } else {
+        periods <- sort(unique(cleaned_data$year))
+      }
+
+      plot <- assessSpeciesNumber(
+        dat = cleaned_data,
+        species = "species",
+        periods = periods,
+        x = "longitude",
+        y = "latitude",
+        year = "year",
+        spatialUncertainty = input$spat_uncert,
+        identifier = "identifier",
+        maxSpatUncertainty = input$max_spat_uncert,
+        normalize = ifelse(input$norm == "Yes", TRUE, FALSE)
+      )$plot
+
+      list(plot = plot)
     })
 
-    # Return the spatial uncertainty column
-    return(reactive(list(
-    spat_uncert = input$spat_uncert
-    )))
+    output$species_num_plot <- renderPlot({
+      plot_data()$plot
+    })
 
+    return(reactive(list(
+      spat_uncert = input$spat_uncert
+    )))
   })
 }
 

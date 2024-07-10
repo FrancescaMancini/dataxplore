@@ -30,8 +30,7 @@ app_ui <- function(request) {
               ),
               selected = "format_a"
             ),
-            varSelectInput("lon", "Longitude column", data = NULL),
-            varSelectInput("lat", "Latitude column", data = NULL),
+            uiOutput("lat_lon_ui"),  # Placeholder for dynamic Latitude and Longitude inputs
             varSelectInput("id", "Choose the identifier", data = NULL),
             checkboxInput("report", "Add to report", FALSE)
           ),

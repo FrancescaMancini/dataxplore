@@ -50,8 +50,6 @@ mod_time_bias_tab_ui <- function(id) {
   )
 }
 
-# Server Function
-
 mod_time_bias_tab_server <- function(id, reformatted_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -76,21 +74,19 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
       
       dateRanges <- lapply(1:input$num, function(i) {
         numericRangeInput(ns(paste0("dates_", i)),
-          label = paste("Year range", i),
-          value = c(min_year, max_year)
+                          label = paste("Year range", i),
+                          value = c(min_year, max_year)
         )
       })
       tagList(dateRanges)
     })
 
-    observeEvent(input$plot_button, {
+    plot_data <- eventReactive(input$plot_button, {
       req(reformatted_data())
 
-      # Remove rows with NA values in the year column
       cleaned_data <- reformatted_data() %>%
         filter(!is.na(year))
       
-      # Notify the user about the number of rows filtered
       num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
       if (num_filtered > 0) {
         showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
@@ -98,52 +94,32 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
 
       if (input$periodtype == "ranges") {
         ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-        
-        # Retrieve the year ranges from the inputs
         year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-
-        # Convert the year_ranges into vectors with year intervals of 1
         periods <- lapply(year_ranges, function(range) {
           from <- range[1]
           to <- range[2]
           return(seq(from = from, to = to))
         })
       } else {
-        periods <- sort(unique(cleaned_data$year)) #list(min(cleaned_data$year:max(cleaned_data$year)))
+        periods <- sort(unique(cleaned_data$year))
       }
 
-      output$number_records <- renderPlot({
-        if (input$periodtype == "ranges") {
-          # Check for increasing years within each period
-          for(period in periods) {
-            validate(
-              need(min(period) == period[1] && max(period) == period[length(period)], "Period years are not in ascending order.")
-            )
-          }
+      plot <- assessRecordNumber(
+        dat = cleaned_data,
+        species = "species",
+        periods = periods,
+        x = "longitude",
+        y = "latitude",
+        year = "year",
+        spatialUncertainty = NULL,
+        identifier = "identifier"
+      )$plot
 
-          if (length(periods) > 1){
+      list(plot = plot)
+    })
 
-            # Check for overlapping periods
-            for(i in 1:(length(periods) - 1)) {
-              validate(
-                need(max(periods[[i]]) < min(periods[[i+1]]), "Period years are overlapping.")
-              )
-            }
-          
-          }
-        }
-
-        assessRecordNumber(
-          dat = cleaned_data,
-          species = "species",
-          periods = periods,
-          x = "longitude",
-          y = "latitude",
-          year = "year",
-          spatialUncertainty = NULL,
-          identifier = "identifier"
-        )$plot
-      })
+    output$number_records <- renderPlot({
+      plot_data()$plot
     })
   })
 }
