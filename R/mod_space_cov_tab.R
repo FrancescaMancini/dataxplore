@@ -8,6 +8,7 @@
 #'
 #' @importFrom shiny NS tagList
 #' @importFrom methods as
+#' @import sp
 #'
 mod_space_cov_tab_ui <- function(id){
   ns <- NS(id)
@@ -24,7 +25,7 @@ mod_space_cov_tab_ui <- function(id){
         uiOutput(ns("dateRangesUI")),
         numericInput(ns("res"), "Spatial resolution", value = 1000),
         selectInput(ns("country"), "Country", c("UK", "England", "Wales", "Scotland")),
-        fileInput(ns("shapefile"), "Choose a Shapefile",
+        fileInput(ns("shapefile"), "Select your shapefile and file extensions.",
                   accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE),
         selectInput(ns("log"), "Log count", c("TRUE", "FALSE"), selected = FALSE),
         selectInput(ns("output"), "Output", c("density", "Overlap", "Number of periods")),
@@ -93,10 +94,9 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
                                    sep = "/"))
 
       # Transform the CRS to WGS 84 (decimal degrees)
-      shape_input <- sf::st_transform(shape_input, crs = 4326)
+      shape_input <- spTransform(UK, 
+                  CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs"))
 
-      # Convert the sf object to a Spatial object
-      methods::as(shape_input, "Spatial")
     })
 
     plot_data <- eventReactive(input$plot_button, {
@@ -119,7 +119,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
           return(seq(from = from, to = to))
         })
       } else {
-        periods <- as.list(sort(unique(cleaned_data$year)))
+        periods <- sort(unique(cleaned_data$year))
       }
 
       spat_cov <- assessSpatialCov(

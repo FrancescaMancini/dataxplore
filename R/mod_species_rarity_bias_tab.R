@@ -144,7 +144,7 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
           metric = ifelse(input$metric == "Coefficient of variation", "r2", "cor")
         )$plot
 
-        incProgress(0.8, detail = "Finalizing plot...", detail = "Please note, this may take some time for larger datasets")
+        incProgress(0.8, detail = "Finalizing plot. Please note, this may take some time for larger datasets")
 
         list(plot = plot)
       })

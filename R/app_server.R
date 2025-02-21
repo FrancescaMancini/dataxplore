@@ -2,12 +2,12 @@
 #'
 #' @param input,output,session Internal parameters for {shiny}.
 #'     DO NOT REMOVE.
-#' @import shiny dplyr
+#' @import shiny dplyr sf
 #' @noRd
 
 app_server <- function(input, output, session) {
 
-  # increase memory to accommodate larger tables
+  # Increase memory to accommodate larger tables
   options(shiny.maxRequestSize = 500 * 1024^2)
 
   uploaded_data <- reactiveVal()
@@ -24,24 +24,41 @@ app_server <- function(input, output, session) {
     uploaded_data(data)
   })
 
-  # Dynamically update variable selections based on the uploaded data
-  observeEvent(uploaded_data(), {
-    updateVarSelectInput(session, "species", data = uploaded_data(), selected = character(0))
-    updateVarSelectInput(session, "date", data = uploaded_data(), selected = character(0))
-    updateVarSelectInput(session, "lon", data = uploaded_data(), selected = character(0))
-    updateVarSelectInput(session, "lat", data = uploaded_data(), selected = character(0))
-    updateVarSelectInput(session, "id", data = uploaded_data(), selected = character(0))
-    updateVarSelectInput(session, "grid_ref_column", data = uploaded_data(), selected = character(0))
-  })
-
-  # Generate UI elements for Latitude and Longitude inputs dynamically
+  # Generate UI elements for Latitude and Longitude inputs dynamically using selectInput
   output$lat_lon_ui <- renderUI({
+
     if (!input$grid_ref) {
       tagList(
-        varSelectInput("lat", "Latitude column", data = uploaded_data()),
-        varSelectInput("lon", "Longitude column", data = uploaded_data())
+        selectInput("lat", "Latitude column", choices = c(), selected = FALSE),
+        selectInput("lon", "Longitude column", choices = c(), selected = FALSE),
+        checkboxInput("convert_osgb36", "Are you using decimal degrees?", FALSE)
       )
+    } else {
+      NULL  # Remove lat/lon inputs when grid reference conversion is selected
     }
+  })
+
+  # Dynamically update variable selections based on the uploaded data
+  observe({
+    req(uploaded_data())  # Ensure uploaded_data is not NULL before updating selections
+
+    col_choices <- colnames(uploaded_data())
+
+    updateSelectInput(session, "species", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "date", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "id", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "grid_ref_column", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "lat", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "lon", choices = col_choices, selected = FALSE)
+  })
+
+  observeEvent(input$grid_ref, {
+
+    req(uploaded_data())
+
+    updateSelectInput(session, "lat", choices = colnames(uploaded_data()), selected = FALSE)
+    updateSelectInput(session, "lon", choices = colnames(uploaded_data()), selected = FALSE)
+
   })
 
   # Grid References UI Dynamic Insertion/Removal
@@ -51,7 +68,7 @@ app_server <- function(input, output, session) {
         selector = "#placeholder", where = "beforeEnd",
         ui = fluidRow(
           id = "dynamicUI",
-          varSelectInput("grid_ref_column", "Grid Reference column", data = uploaded_data()),
+          selectInput("grid_ref_column", "Grid Reference column", choices = colnames(uploaded_data())),
           actionButton("grid_ref_convert", "Convert")
         )
       )
@@ -97,10 +114,11 @@ app_server <- function(input, output, session) {
     if (length(cols_to_select) > 0) {
       formatted_data <- select(data, !!!syms(cols_to_select))
 
-      if (!is.null(input$species)) {
+      if (nchar(input$species)) {
         formatted_data <- rename(formatted_data, species = !!sym(input$species))
       }
-      if (!is.null(input$date)) {
+
+      if (nchar(input$date) > 0) {
         formatted_data <- rename(formatted_data, date = !!sym(input$date))
 
         if (input$date_format == "format_a") {
@@ -112,7 +130,7 @@ app_server <- function(input, output, session) {
         }
         formatted_data$year <- year(formatted_data$date)
       }
-      if (!is.null(input$id)) {
+      if (nchar(input$id) > 0) {
         formatted_data <- rename(formatted_data, identifier = !!sym(input$id))
       }
     } else {

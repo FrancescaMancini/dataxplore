@@ -20,8 +20,11 @@ app_ui <- function(request) {
             fileInput("upload", "Upload your data", accept = c(".csv", ".txt")),
             checkboxInput("grid_ref", "Convert British National Grid References", FALSE),
             tags$div(id = "placeholder"),
-            varSelectInput("species", "Species column", data = NULL),
-            varSelectInput("date", "Date column", data = NULL),
+            
+            # Replace varSelectInput with selectInput
+            selectInput("species", "Species column", choices = NULL),
+            selectInput("date", "Date column", choices = NULL),
+
             radioButtons("date_format", "Select date format (please ignore separator)",
               choices = c(
                 "day/month/year" = "format_a",
@@ -30,8 +33,11 @@ app_ui <- function(request) {
               ),
               selected = "format_a"
             ),
-            uiOutput("lat_lon_ui"),  # Placeholder for dynamic Latitude and Longitude inputs
-            varSelectInput("id", "Choose the identifier", data = NULL),
+
+            uiOutput("lat_lon_ui"),  # This will also use selectInput in the server
+
+            selectInput("id", "Choose the identifier", choices = NULL),
+
             checkboxInput("report", "Add to report", FALSE)
           ),
           mainPanel(
@@ -72,30 +78,5 @@ app_ui <- function(request) {
       tabPanel("Environment", mod_environment_bias_tab_ui("environment_bias_tab_1")),
       tabPanel("Export", mod_export_tab_ui("export_tab_1"))
     )
-  )
-}
-
-#' Add external Resources to the Application
-#'
-#' This function is internally used to add external
-#' resources inside the Shiny application.
-#'
-#' @import shiny
-#' @importFrom golem add_resource_path activate_js favicon bundle_resources
-#' @noRd
-golem_add_external_resources <- function() {
-  add_resource_path(
-    "www",
-    app_sys("app/www")
-  )
-
-  tags$head(
-    favicon(),
-    bundle_resources(
-      path = app_sys("app/www"),
-      app_title = "dataxplore"
-    )
-    # Add here other external resources
-    # for example, you can add shinyalert::useShinyalert()
   )
 }
