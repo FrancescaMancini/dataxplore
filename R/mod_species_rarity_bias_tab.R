@@ -97,14 +97,14 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
 
     plot_data <- eventReactive(input$plot_button, {
       withProgress(message = 'Generating plot...', value = 0, {
-        req(module_outputs()$spat_uncert,
+        req(module_outputs$mod_species_bias_tab()$spat_uncert,
             input$max_spat_uncert, input$res,
             input$prev, input$metric, reformatted_data())
 
         incProgress(0.2, detail = "Processing data...")
 
         cleaned_data <- uploaded_data() %>%
-          select(module_outputs()$spat_uncert) %>%
+          select(module_outputs$mod_species_bias_tab()$spat_uncert) %>%
           cbind(reformatted_data()) %>%
           filter(!is.na(year))
         
@@ -136,7 +136,7 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
           x = "longitude",
           y = "latitude",
           year = "year",
-          spatialUncertainty = module_outputs()$spat_uncert,
+          spatialUncertainty = module_outputs$mod_species_bias_tab()$spat_uncert,
           identifier = "identifier",
           maxSpatUncertainty = input$max_spat_uncert,
           res = input$res,

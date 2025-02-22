@@ -20,8 +20,6 @@ app_ui <- function(request) {
             fileInput("upload", "Upload your data", accept = c(".csv", ".txt")),
             checkboxInput("grid_ref", "Convert British National Grid References", FALSE),
             tags$div(id = "placeholder"),
-            
-            # Replace varSelectInput with selectInput
             selectInput("species", "Species column", choices = NULL),
             selectInput("date", "Date column", choices = NULL),
 

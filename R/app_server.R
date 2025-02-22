@@ -78,7 +78,7 @@ app_server <- function(input, output, session) {
   })
 
   # New reactive value to store lat/lon conversion results with default value
-  conversion_result <- reactiveVal(data.frame(lat = NA, lon = NA))
+  conversion_result <- reactiveVal()
 
   observeEvent(input$grid_ref_convert, {
     req(input$grid_ref_column)
@@ -86,26 +86,22 @@ app_server <- function(input, output, session) {
     sites <- pull(uploaded_data(), eval(as.symbol(input$grid_ref_column)))
 
     # Assuming 'osg_parse' is a function that converts grid references to lat/lon
-    result <- osg_parse(grid_refs = sites, coord_system = "WGS84")
-    conversion_result(result)
-  })
+    result <- osg_parse(grid_refs = sites, coord_system = "BNG")
 
-  lat_lon_conversion <- reactive({
-    conversion_result()
+    conversion_result(data.frame("lat" = result$northing, "lon" = result$easting))
   })
 
   reformatted_data <- reactive({
     req(uploaded_data()) # Ensure there's uploaded data
 
     data <- uploaded_data()
-    conversion_result <- lat_lon_conversion()
 
-    if (!is.null(conversion_result) && "lat" %in% names(conversion_result) && "lon" %in% names(conversion_result)) {
-      data$lat <- conversion_result$lat
-      data$lon <- conversion_result$lon
-      lon_lat_names <- c("lat", "lon")
+    if (!is.null(conversion_result()) && "lat" %in% names(conversion_result()) && "lon" %in% names(conversion_result())) {
+      data$lat <- conversion_result()$lat
+      data$lon <- conversion_result()$lon
+      lat_lon_names <- as.character(c("lat", "lon"))
     } else {
-      lon_lat_names <- as.character(c(input$lat, input$lon))
+      lat_lon_names <- as.character(c(input$lat, input$lon))
     }
 
     cols_to_select <- c(input$species, input$date, input$id)
@@ -137,18 +133,41 @@ app_server <- function(input, output, session) {
       formatted_data <- data.frame()
     }
 
-    if (length(lon_lat_names) == 2) {
+    if (length(lat_lon_names) == 2) {
+
       if (nrow(formatted_data) == 0) {
-        formatted_data <- select(data, !!!syms(lon_lat_names))
+        formatted_data <- select(data, !!!syms(lat_lon_names))
       } else {
-        formatted_data <- cbind(formatted_data, select(data, !!!syms(lon_lat_names)))
+        formatted_data <- cbind(formatted_data, select(data, !!!syms(lat_lon_names)))
       }
 
-      formatted_data <- rename(formatted_data, latitude = !!sym(lon_lat_names[1]))
-      formatted_data <- rename(formatted_data, longitude = !!sym(lon_lat_names[2]))
+      formatted_data <- rename(formatted_data, latitude = !!sym(lat_lon_names[1]))
+      formatted_data <- rename(formatted_data, longitude = !!sym(lat_lon_names[2]))
+
     }
 
-    formatted_data
+    if (!input$grid_ref){
+
+      if(input$convert_osgb36 && all(lat_lon_names != "")){
+
+      # Convert to an sf object
+      sf_data <- st_as_sf(data, coords = c(lat_lon_names[2], lat_lon_names[1]), crs = 4326)
+
+      # Transform to British National Grid (EPSG:27700)
+      sf_data_bng <- st_transform(sf_data, crs = 27700)
+
+      # Extract only the transformed coordinates as a new data frame
+      df_bng <- as.data.frame(st_coordinates(sf_data_bng))
+
+      df_bng = rename(df_bng, latitude = Y, longitude = X) %>%
+      select(latitude, longitude)
+
+      formatted_data = formatted_data %>% select(-latitude, -longitude) %>% cbind(df_bng)
+
+      }
+    }
+
+    return(formatted_data)
   })
 
   # Render uploaded data table
@@ -235,13 +254,15 @@ app_server <- function(input, output, session) {
   mod_data_tab_server(id = "data_tab_1", user_selections = user_selections, uploaded_data = uploaded_data)
   mod_time_bias_tab_server("time_bias_tab_1", reformatted_data = reformatted_data)
 
+  module_outputs = list()
+
   # Note we save module_outputs to extract spatial uncertainty
-  module_outputs <- mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data)
+  module_outputs$mod_species_bias_tab <- mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data)
   mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data, module_outputs = module_outputs, reformatted_data = reformatted_data)
   mod_species_rarity_bias_tab_server("species_rarity_bias_tab_1", uploaded_data = uploaded_data, module_outputs = module_outputs, reformatted_data = reformatted_data)
 
-  mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data)
-  # mod_space_bias_tab_server("space_bias_tab_1")
+  module_outputs$mod_space_cov_tab <- mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data)
+  mod_space_bias_tab_server("space_bias_tab_1", module_outputs = module_outputs, uploaded_data = uploaded_data, reformatted_data = reformatted_data)
   # mod_environment_bias_tab_server("environment_bias_tab_1")
   # mod_export_tab_server("export_tab_1")
 }

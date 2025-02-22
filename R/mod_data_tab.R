@@ -63,22 +63,20 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
     
     # Date summary
     date_summary <- eventReactive(input$date_summary_button, {
-      req(user_selections()$date)
-      format_str <- switch(user_selections()$date_format,
-                           "format_a" = "%d/%m/%Y",
-                           "format_b" = "%m/%d/%Y",
-                           "format_c" = "%Y/%m/%d"
-      )
-      uploaded_data() %>%
-        mutate(date = case_when(
-          user_selections()$date_format == "format_a" ~ dmy(.data[[user_selections()$date]]),
-          user_selections()$date_format == "format_b" ~ mdy(.data[[user_selections()$date]]),
-          user_selections()$date_format == "format_c" ~ ymd(.data[[user_selections()$date]])
-        )) %>%
-        summarise(
-          `First Record` = min(date, na.rm = TRUE),
-          `Last Record` = max(date, na.rm = TRUE), .groups = "drop"
-        )
+      req(uploaded_data(), user_selections()$date, user_selections()$date_format)
+    
+      dates = uploaded_data() %>% pull(user_selections()$date)
+
+        if (user_selections()$date_format == "format_a") {
+          dates <- lubridate::dmy(dates, quiet = TRUE)
+        } else if (user_selections()$date_format == "format_b") {
+          dates <- lubridate::mdy(dates, quiet = TRUE)
+        } else if (user_selections()$date_format == "format_c") {
+          dates <- lubridate::ymd(dates, quiet = TRUE)
+        }
+
+      data.frame(`First Record` = min(dates), `Last Record` = max(dates))
+
     })
     
     output$date_summary_table <- DT::renderDT({
@@ -93,10 +91,21 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
     
     # Number of records per year
     year_summary <- eventReactive(input$year_summary_button, {
-      req(uploaded_data(), user_selections()$date)
-      uploaded_data() %>%
-        group_by(Year = get(user_selections()$date)) %>%
-        summarise(`Number of Records` = n())
+      req(uploaded_data(), user_selections()$date, user_selections()$date_format)
+
+      dates = uploaded_data() %>% pull(user_selections()$date)
+
+        if (user_selections()$date_format == "format_a") {
+          dates <- lubridate::dmy(dates, quiet = TRUE)
+        } else if (user_selections()$date_format == "format_b") {
+          dates <- lubridate::mdy(dates, quiet = TRUE)
+        } else if (user_selections()$date_format == "format_c") {
+          dates <- lubridate::ymd(dates, quiet = TRUE)
+        }
+
+      data.frame(Year = year(dates)) %>% 
+      group_by(Year) %>% 
+      summarise(`Number of Records` = n())
     })
     
     output$year_summary_table <- DT::renderDT({

@@ -24,7 +24,7 @@ mod_space_cov_tab_ui <- function(id){
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
         numericInput(ns("res"), "Spatial resolution", value = 1000),
-        selectInput(ns("country"), "Country", c("UK", "England", "Wales", "Scotland")),
+        # selectInput(ns("country"), "Country", c("UK", "England", "Wales", "Scotland")),
         fileInput(ns("shapefile"), "Select your shapefile and file extensions.",
                   accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE),
         selectInput(ns("log"), "Log count", c("TRUE", "FALSE"), selected = FALSE),
@@ -74,7 +74,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
       tagList(dateRanges)
     })
 
-    shape_file <- reactive({
+    sp_df <- reactive({
       req(input$shapefile)
 
       # Temporary directory where files are uploaded
@@ -93,14 +93,11 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
                                    input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
                                    sep = "/"))
 
-      # Transform the CRS to WGS 84 (decimal degrees)
-      shape_input <- spTransform(UK, 
-                  CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs"))
-
+      return(as(shape_input, "Spatial"))
     })
 
     plot_data <- eventReactive(input$plot_button, {
-      req(input$res, input$output)
+      req(input$res, input$output, input$shapefile)
 
       cleaned_data <- reformatted_data() %>%
         filter(!is.na(year))
@@ -127,7 +124,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
         periods = periods,
         res = input$res,
         logCount = input$log,
-        shp = shape_file(),
+        shp = sp_df(),
         species = "species",
         x = "longitude",
         y = "latitude",
@@ -146,5 +143,9 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
     output$space_cov_plot <- renderPlot({
       plot_data()$plot
     })
+
+    return(reactive(list(
+      sp_df = sp_df()
+    )))
   })
 }

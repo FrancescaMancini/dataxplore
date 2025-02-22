@@ -19,7 +19,9 @@ Imports:
     shiny (>= 1.7.5),
     spData,
     vroom,
-    sf
+    sf,
+    ggpubr,
+    raster
 Suggests: 
     spelling,
     testthat (>= 3.0.0)
