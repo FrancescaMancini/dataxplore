@@ -108,7 +108,7 @@ app_server <- function(input, output, session) {
     cols_to_select <- na.omit(cols_to_select)
 
     if (length(cols_to_select) > 0) {
-      formatted_data <- select(data, !!!syms(cols_to_select))
+      formatted_data <- dplyr::select(data, !!!syms(cols_to_select))
 
       if (nchar(input$species)) {
         formatted_data <- rename(formatted_data, species = !!sym(input$species))
@@ -136,9 +136,9 @@ app_server <- function(input, output, session) {
     if (length(lat_lon_names) == 2) {
 
       if (nrow(formatted_data) == 0) {
-        formatted_data <- select(data, !!!syms(lat_lon_names))
+        formatted_data <- dplyr::select(data, !!!syms(lat_lon_names))
       } else {
-        formatted_data <- cbind(formatted_data, select(data, !!!syms(lat_lon_names)))
+        formatted_data <- cbind(formatted_data, dplyr::select(data, !!!syms(lat_lon_names)))
       }
 
       formatted_data <- rename(formatted_data, latitude = !!sym(lat_lon_names[1]))
@@ -160,9 +160,9 @@ app_server <- function(input, output, session) {
       df_bng <- as.data.frame(st_coordinates(sf_data_bng))
 
       df_bng = rename(df_bng, latitude = Y, longitude = X) %>%
-      select(latitude, longitude)
+      dplyr::select(latitude, longitude)
 
-      formatted_data = formatted_data %>% select(-latitude, -longitude) %>% cbind(df_bng)
+      formatted_data = formatted_data %>% dplyr::select(-latitude, -longitude) %>% cbind(df_bng)
 
       }
     }

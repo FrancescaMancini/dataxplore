@@ -104,7 +104,7 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
         incProgress(0.2, detail = "Processing data...")
 
         cleaned_data <- uploaded_data() %>%
-          select(module_outputs$mod_species_bias_tab()$spat_uncert) %>%
+          dplyr::select(module_outputs$mod_species_bias_tab()$spat_uncert) %>%
           cbind(reformatted_data()) %>%
           filter(!is.na(year))
         

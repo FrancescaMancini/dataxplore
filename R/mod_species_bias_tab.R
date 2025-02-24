@@ -95,7 +95,7 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
       req(input$spat_uncert, input$max_spat_uncert, input$norm, uploaded_data())
 
       cleaned_data <- uploaded_data() %>%
-        select(input$spat_uncert) %>%
+        dplyr::select(input$spat_uncert) %>%
         cbind(reformatted_data()) %>%
         filter(!is.na(year))
       

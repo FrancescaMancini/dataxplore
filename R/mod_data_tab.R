@@ -143,7 +143,7 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
     bbox <- eventReactive(input$coords_summary_button, {
       req(uploaded_data(), user_selections()$lat, user_selections()$lon)
       uploaded_data() %>%
-        select(user_selections()$lat, user_selections()$lon) %>%
+        dplyr::select(user_selections()$lat, user_selections()$lon) %>%
         summarise(
           `Latitude Min` = min(eval(as.name(user_selections()$lat))),
           `Latitude Max` = max(eval(as.name(user_selections()$lat))),

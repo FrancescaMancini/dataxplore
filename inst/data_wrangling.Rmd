@@ -45,7 +45,7 @@ If the variable is a date show the range
 
 ```{r}
 example_data %>%
-  select(date) %>%
+  dplyr::select(date) %>%
   mutate(date = as.Date(date)) %>%
   summarise(min = min(date),
             max= max(date))
@@ -55,7 +55,7 @@ If the variable is coordinates, return bounding box
 
 ```{r}
 example_data %>%
-  select(x,y) %>%
+  dplyr::select(x,y) %>%
   summarise(x_min = min(x),
             x_max = max(x),
             y_min = min(y),
