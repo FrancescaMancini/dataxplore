@@ -16,7 +16,7 @@ mod_info_tab_ui <- function(id){
       mainPanel(
         
         h2("What is dataXplore"),
-                textOutput(ns("text1")),
+                uiOutput(ns("text1")),
                 h2("How to use dataXplore"),
                 uiOutput(ns("text2")),
                 tableOutput(ns("table")),
