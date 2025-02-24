@@ -7,50 +7,37 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
+#' @import raster
+#' 
 mod_space_bias_tab_ui <- function(id){
   ns <- NS(id)
   tagList(
     sidebarLayout(
       sidebarPanel(
+        selectInput(
+          ns("spat_uncert"), "Spatial Uncertainty column",
+          choices = NULL
+        ),
+        radioButtons(
+        ns("periodtype"), "Time periods as",
+        choiceNames = list("Years", "Year ranges"),
+        choiceValues = list("years", "ranges"),
+        selected = "years"
+      ),
+      uiOutput(ns("numUI")),
+      uiOutput(ns("dateRangesUI")),
         numericInput(ns("num"),
                      "Time periods",
                      value = 1, min = 1, max = Inf
         ),
-        uiOutput(ns("dateRangesUI")
-                 ),
-        selectInput(
-          "species", "Species column",
-          c("", "species", "date", "x", "y", "group", "year"),
-        ),
-        selectInput(
-          "lon", "Longitude column",
-          c("", "species", "date", "x", "y", "group", "year"),
-        ),
-        selectInput(
-          "lat", "Latitude column",
-          c("", "species", "date", "x", "y", "group", "year"),
-        ),
-        selectInput(
-          "year", "Year column",
-          c("","species", "date", "x", "y", "group", "year"),
-        ),
-        selectInput(
-          "id", "Choose the identifier",
-          c("","species", "date", "x", "y", "group", "year"),
-        ),
         numericInput(
-          "nSamps", "Number of iterations",
+          ns("nSamps"), "Number of iterations",
           value = 50
         ),
-        fileInput("mask",
-                  NULL
-        ),
         actionButton(
-          "plot_button", "Plot"
+          ns("plot_button"), "Plot"
         ),
-        # checkboxInput("code", "View R code"
-        # ),
-        checkboxInput("report", "Add to report", FALSE
+        checkboxInput(ns("report"), "Add to report", FALSE
         )
       ),
       mainPanel(
@@ -77,27 +64,100 @@ mod_space_bias_tab_ui <- function(id){
 #' space_bias_tab Server Functions
 #'
 #' @noRd
-mod_space_bias_tab_server <- function(id){
-  moduleServer( id, function(input, output, session){
+mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reformatted_data){
+  moduleServer(id, function(input, output, session){
     ns <- session$ns
 
+    output$numUI <- renderUI({
+      req(input$periodtype == "ranges")
+      numericInput(
+        ns("num"), "Time periods",
+        value = 1, min = 1, max = Inf
+      )
+    })
+
     output$dateRangesUI <- renderUI({
-      num <- input$num
-      dateRanges <- lapply(1:num, function(i) {
-        dateRangeInput(paste0("dates_", i), label = paste("Date Range", i), start = NULL, end = NULL)
+      req(input$periodtype == "ranges")
+      req(input$num)
+
+      min_year <- reformatted_data() %>%
+        summarise(min_year = min(year, na.rm = TRUE)) %>%
+        pull(min_year)
+      max_year <- reformatted_data() %>%
+        summarise(max_year = max(year, na.rm = TRUE)) %>%
+        pull(max_year)
+
+      dateRanges <- lapply(1:input$num, function(i) {
+        numericRangeInput(ns(paste0("dates_", i)),
+          label = paste("Year range", i),
+          value = c(min_year, max_year)
+        )
       })
       tagList(dateRanges)
     })
 
-    output$space_bias_plot <- renderPlot({
-      random_ggplot(type = "line")
+    observeEvent(uploaded_data(), {
+      updateSelectInput(session, "spat_uncert",
+                        choices = names(uploaded_data()),
+                        selected = character(0)
+      )
     })
 
+    plot_data <- eventReactive(input$plot_button, {
+      withProgress(message = 'Generating plot...', value = 0, {
+        req(reformatted_data(), input$nSamps, module_outputs$mod_space_cov_tab()$sp_df)
+
+        incProgress(0.2, detail = "Cleaning data...")
+        cleaned_data <- reformatted_data() %>%
+          filter(!is.na(year))
+
+        num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
+        if (num_filtered > 0) {
+          showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
+        }
+
+        incProgress(0.4, detail = "Processing time periods...")
+        if (input$periodtype == "ranges") {
+          ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+          year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+          periods <- lapply(year_ranges, function(range) {
+            from <- range[1]
+            to <- range[2]
+            return(seq(from = from, to = to))
+          })
+        } else {
+          periods <- sort(unique(cleaned_data$year))
+        }
+
+        incProgress(0.6, detail = "Creating raster mask...")
+        mask <- rasterize(module_outputs$mod_space_cov_tab()$sp_df, 
+                          raster(nrow = 1000, ncol = 1000, extent(module_outputs$mod_space_cov_tab()$sp_df)))
+
+        incProgress(0.8, detail = "Calculating spatial bias...")
+
+        data <- reformatted_data() %>%
+          mutate("spat_uncert" = uploaded_data() %>% pull(input$spat_uncert))
+
+        plot <- assessSpatialBias(dat = data,
+                                  periods = periods,
+                                  mask = mask,
+                                  nSamps = input$nSamps,
+                                  degrade = TRUE,
+                                  species = "species",
+                                  x = "longitude",
+                                  y = "latitude",
+                                  year = "year", 
+                                  spatialUncertainty = "spat_uncert",
+                                  identifier = "identifier")$plot
+
+        incProgress(1, detail = "Finalizing plot...")
+        
+        list(plot = plot)
+      })
+    })
+
+    output$space_bias_plot <- renderPlot({
+      plot_data()$plot
+    })
   })
 }
-
-## To be copied in the UI
-#
-
-## To be copied in the server
-#

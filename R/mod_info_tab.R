@@ -13,8 +13,10 @@ mod_info_tab_ui <- function(id){
   tagList(
     fluidPage(
       theme = bslib::bs_theme(bootswatch = "sandstone"),
-      mainPanel(h2("What is dataXplore"),
-                uiOutput(ns("text1")),
+      mainPanel(
+        
+        h2("What is dataXplore"),
+                textOutput(ns("text1")),
                 h2("How to use dataXplore"),
                 uiOutput(ns("text2")),
                 tableOutput(ns("table")),
@@ -32,7 +34,6 @@ mod_info_tab_ui <- function(id){
 #' @noRd
 mod_info_tab_server <- function(id){
   moduleServer( id, function(input, output, session){
-    ns <- session$ns
 
     output$text1 <- renderUI({
       HTML(

@@ -9,245 +9,157 @@
 #' @import shiny DT spData dplyr vroom tools rnrfa lubridate
 #' @importFrom sf st_coordinates st_sample
 
-mod_data_tab_ui <- function(id){
+mod_data_tab_ui <- function(id) {
   ns <- NS(id)
+  
   tagList(
-    sidebarLayout(
-      sidebarPanel(
-        varSelectInput(
-          ns("species"), "Species column",
-          data = NULL
-        ),
-        actionButton(
-          ns("species_summary_button"), "Species summary"
-        ),
-        varSelectInput(
-          ns("date"), "Date column",
-          data = NULL
-        ),
-
-        radioButtons(ns("date_format"), "Select date format (please ignore seperator)",
-                    choices = c("day/month/year" = "format_a",
-                                "month/day/year" = "format_b",
-                                "year/month/day" = "format_c"),
-                    selected = "format_a"),
-        
-        actionButton(
-          ns("date_summary_button"), "Dates summary"
-        ),
-        varSelectInput(
-          ns("year"), "Year column",
-          data = NULL
-        ),
-        actionButton(
-          ns("year_summary_button"), "Year summary"
-        ),
-        varSelectInput(
-          ns("id"), "Choose the identifier",
-          data = NULL
-        ),
-        actionButton(
-          ns("id_summary_button"), "Identifier summary"
-        ),
-        varSelectInput(
-          ns("lon"), "Longitude column",
-          data = NULL
-        ),
-        varSelectInput(
-          ns("lat"), "Latitude column",
-          data = NULL
-        ),
-        actionButton(
-          ns("coords_summary_button"), "Calculate bounding box"
-        ),
-        checkboxInput(ns("report"), "Add to report",
-                      FALSE)
+    mainPanel(
+      fluidRow(
+        column(2, actionButton(ns("species_summary_button"), "Species summary")),
+        column(2, actionButton(ns("date_summary_button"), "Dates summary")),
+        column(2, actionButton(ns("year_summary_button"), "Year summary")),
+        column(2, actionButton(ns("id_summary_button"), "Identifier summary")),
+        column(2, actionButton(ns("coords_summary_button"), "Calculate bounds"))
       ),
-      mainPanel(
-        h2(textOutput(ns("species_title"))),# add a title for each summary table only if the action button is clicked
-        DTOutput(ns("species_summary_table")),
-        h2(textOutput(ns("date_title"))),
-        DTOutput(ns("date_summary_table")),
-        h2(textOutput(ns("year_title"))),
-        DTOutput(ns("year_summary_table")),
-        h2(textOutput(ns("id_title"))),
-        DTOutput(ns("id_summary_table")),
-        h2(textOutput(ns("coords_title"))),
-        DTOutput(ns("coords_summary_table"))
-        )
+
+      h2(textOutput(ns("species_title"))),
+      DTOutput(ns("species_summary_table")),
+      h2(textOutput(ns("date_title"))),
+      DTOutput(ns("date_summary_table")),
+      h2(textOutput(ns("year_title"))),
+      DTOutput(ns("year_summary_table")),
+      h2(textOutput(ns("id_title"))),
+      DTOutput(ns("id_summary_table")),
+      h2(textOutput(ns("coords_title"))),
+      DTOutput(ns("coords_summary_table"))
     )
   )
 }
 
-
 #' data_tab Server Functions
 #'
 #' @noRd
-mod_data_tab_server <- function(id, uploaded_data){
-  moduleServer(id, function(input, output, session){
-    options(shiny.maxRequestSize = 100*1024^2)
+mod_data_tab_server <- function(id, user_selections, uploaded_data) {
+  moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    # once a valid file has been uploaded
-    # update the values to select variables
-    # from the column names of the dataframe
 
-    observeEvent(uploaded_data(), {
-      updateVarSelectInput(session, "species", data = uploaded_data(),
-                           selected=character(0))
-      updateVarSelectInput(session, "date", data = uploaded_data(),
-                           selected=character(0))
-      updateVarSelectInput(session, "lon", data = uploaded_data(),
-                           selected=character(0))
-      updateVarSelectInput(session, "lat", data = uploaded_data(),
-                           selected=character(0))
-      updateVarSelectInput(session, "year", data = uploaded_data(),
-                           selected=character(0))
-      updateVarSelectInput(session, "id", data = uploaded_data(),
-                           selected=character(0))
-      })
-
-
-
-    # create the variable summaries
-    # number of records per species
-    species_summary <- reactive({
-      req(uploaded_data(), input$species, input$species_summary_button)
-
+    # Number of records per species
+    species_summary <- eventReactive(input$species_summary_button, {
+      req(uploaded_data(), user_selections()$species)
       uploaded_data() %>%
-        group_by(get(input$species)) %>% # get() needed because input$species is a character string
-        summarise(n_records = n())
+        group_by(Species = get(user_selections()$species)) %>%
+        summarise(`Number of Records` = n())
     })
-
-    # first and last date of records
-    # need to let user specify the format for the dates
-    # at the moment this only works if dates are in format dd/mm/yyyy
-    date_summary <- reactive({
-      req(uploaded_data(), input$date, input$date_summary_button)
-
-      # re-format the dates (according to inputs)
-        if (input$date_format == "format_a"){
-
-      uploaded_data() %>%
-        select(input$date) %>%
-        summarise(first_record = min(dmy(eval(as.name(input$date)))),
-                  last_record = max(dmy(eval(as.name(input$date)))))
-        }
-
-        else if (input$date_format == "format_b"){
-      uploaded_data() %>%
-        select(input$date) %>%
-        summarise(first_record = min(mdy(eval(as.name(input$date)))),
-                  last_record = max(mdy(eval(as.name(input$date)))))
-        }
-
-        else {
-      uploaded_data() %>%
-        select(input$date) %>%
-        summarise(first_record = min(ymd(eval(as.name(input$date)))),
-                  last_record = max(ymd(eval(as.name(input$date)))))
-        }
-
-    })
-
-
-    # once I get this part to work I have to updateVarSelectInput for lat and lon
-
-    # does not work because uploaded _data() has not been modified
-    # observeEvent(input$grid_ref_convert, {
-    #   updateVarSelectInput(session, "lat", data = uploaded_data(),
-    #                        selected=character(0))
-    #   updateVarSelectInput(session, "lon", data = uploaded_data(),
-    #                        selected=character(0))
-    # })
-
-    # bounding box
-    bbox <- reactive({
-      req(uploaded_data(), input$lat, input$lon, input$coords_summary_button)
-
-      uploaded_data() %>%
-        select(input$lat, input$lon) %>%
-        summarise(lat_min = min(eval(as.name(input$lat))),
-                  lat_max = max(eval(as.name(input$lat))),
-                  lon_min = min(eval(as.name(input$lon))),
-                  lon_max = max(eval(as.name(input$lon))))
-    })
-
-    # number of records per year
-    year_summary <- reactive({
-      req(uploaded_data(), input$year, input$year_summary_button)
-
-      uploaded_data() %>%
-        group_by(get(input$year)) %>%
-        summarise(n_records = n())
-    })
-
-    # number of records per group
-    id_summary <- reactive({
-      req(uploaded_data(), input$id, input$species, input$id_summary_button)
-
-      uploaded_data() %>%
-        group_by(get(input$id)) %>%
-        summarise(n_records = n(),
-                  n_species = n_distinct(get(input$species)))
-    })
-
-
+    
     output$species_summary_table <- DT::renderDT({
+      req(species_summary())
       species_summary()
     })
-
+    
     output$species_title <- renderText({
-      req(uploaded_data(), input$species, input$species_summary_button)
-
-      "Species summary"
+      req(user_selections()$species, input$species_summary_button)
+      "Species Summary"
     })
+    
+    # Date summary
+    date_summary <- eventReactive(input$date_summary_button, {
+      req(uploaded_data(), user_selections()$date, user_selections()$date_format)
+    
+      dates = uploaded_data() %>% pull(user_selections()$date)
 
+        if (user_selections()$date_format == "format_a") {
+          dates <- lubridate::dmy(dates, quiet = TRUE)
+        } else if (user_selections()$date_format == "format_b") {
+          dates <- lubridate::mdy(dates, quiet = TRUE)
+        } else if (user_selections()$date_format == "format_c") {
+          dates <- lubridate::ymd(dates, quiet = TRUE)
+        }
+
+      data.frame(`First Record` = min(dates), `Last Record` = max(dates))
+
+    })
+    
     output$date_summary_table <- DT::renderDT({
+      req(date_summary())
       date_summary()
     })
-
+    
     output$date_title <- renderText({
-      req(uploaded_data(), input$date, input$date_summary_button)
-
-      "Date summary"
+      req(user_selections()$date, input$date_summary_button)
+      "Date Summary"
     })
+    
+    # Number of records per year
+    year_summary <- eventReactive(input$year_summary_button, {
+      req(uploaded_data(), user_selections()$date, user_selections()$date_format)
 
+      dates = uploaded_data() %>% pull(user_selections()$date)
 
-    output$coords_summary_table <- DT::renderDT({
-      bbox()
+        if (user_selections()$date_format == "format_a") {
+          dates <- lubridate::dmy(dates, quiet = TRUE)
+        } else if (user_selections()$date_format == "format_b") {
+          dates <- lubridate::mdy(dates, quiet = TRUE)
+        } else if (user_selections()$date_format == "format_c") {
+          dates <- lubridate::ymd(dates, quiet = TRUE)
+        }
+
+      data.frame(Year = year(dates)) %>% 
+      group_by(Year) %>% 
+      summarise(`Number of Records` = n())
     })
-
-    output$coords_title <- renderText({
-      req(uploaded_data(), input$lat, input$lon, input$coords_summary_button)
-
-      "Bounding box"
-    })
-
+    
     output$year_summary_table <- DT::renderDT({
+      req(year_summary())
       year_summary()
     })
-
+    
     output$year_title <- renderText({
-      req(uploaded_data(), input$year, input$year_summary_button)
-
-      "Year summary"
+      req(user_selections()$date, input$year_summary_button)
+      "Year Summary"
     })
-
+    
+    # Number of records per group (ID)
+    id_summary <- eventReactive(input$id_summary_button, {
+      req(uploaded_data(), user_selections()$id, user_selections()$species)
+      uploaded_data() %>%
+        group_by(`Identifier` = get(user_selections()$id)) %>%
+        summarise(
+          `Number of Records` = n(),
+          `Number of Species` = n_distinct(get(user_selections()$species))
+        )
+    })
+    
     output$id_summary_table <- DT::renderDT({
+      req(id_summary())
       id_summary()
     })
-
+    
     output$id_title <- renderText({
-      req(uploaded_data(), input$id, input$id_summary_button)
-
-      "Identifier summary"
+      req(user_selections()$id, input$id_summary_button)
+      "Identifier Summary"
+    })
+    
+    # Bounding box
+    bbox <- eventReactive(input$coords_summary_button, {
+      req(uploaded_data(), user_selections()$lat, user_selections()$lon)
+      uploaded_data() %>%
+        dplyr::select(user_selections()$lat, user_selections()$lon) %>%
+        summarise(
+          `Latitude Min` = min(eval(as.name(user_selections()$lat))),
+          `Latitude Max` = max(eval(as.name(user_selections()$lat))),
+          `Longitude Min` = min(eval(as.name(user_selections()$lon))),
+          `Longitude Max` = max(eval(as.name(user_selections()$lon)))
+        )
+    })
+    
+    output$coords_summary_table <- DT::renderDT({
+      req(bbox())
+      bbox()
+    })
+    
+    output$coords_title <- renderText({
+      req(user_selections()$lat, user_selections()$lon, input$coords_summary_button)
+      "Bounding Box"
     })
   })
 }
-
-## To be copied in the UI
-#
-
-## To be copied in the server
-#
-
