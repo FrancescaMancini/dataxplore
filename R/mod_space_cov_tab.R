@@ -33,7 +33,14 @@ mod_space_cov_tab_ui <- function(id){
         checkboxInput(ns("report"), "Add to report", FALSE)
       ),
       mainPanel(
-        h2(span("Spatial coverage")),
+        h2(span("Spatial coverage"),
+           tooltip(
+              bs_icon("info-circle"),
+              "If output is density, the maps show the density of records in each grid cell per time period.
+              If output is number of periods, it returns one map showing the number of time periods in which each grid cell has been sampled.",
+              placement = "bottom"
+            )
+        ),
         plotOutput(ns("space_cov_plot"))
       )
     )
@@ -77,67 +84,82 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
     sp_df <- reactive({
       req(input$shapefile)
 
-      # Temporary directory where files are uploaded
-      tempdirname <- dirname(input$shapefile$datapath[1])
+      withProgress(message = "Loading shapefile...", value = 0, {
+        # Temporary directory where files are uploaded
+        tempdirname <- dirname(input$shapefile$datapath[1])
 
-      # Rename files
-      for (i in 1:nrow(input$shapefile)) {
-        file.rename(
-          input$shapefile$datapath[i],
-          paste0(tempdirname, "/", input$shapefile$name[i])
-        )
-      }
+        # Rename files
+        for (i in 1:nrow(input$shapefile)) {
+          file.rename(
+            input$shapefile$datapath[i],
+            paste0(tempdirname, "/", input$shapefile$name[i])
+          )
+        }
 
-      # Read the shapefile using st_read from sf package
-      shape_input <- sf::st_read(paste(tempdirname,
-                                   input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
-                                   sep = "/"))
+        incProgress(0.5, detail = "Reading shapefile...")
 
-      return(as(shape_input, "Spatial"))
+        # Read the shapefile using st_read from sf package
+        shape_input <- sf::st_read(paste(tempdirname,
+                                     input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
+                                     sep = "/"))
+
+        incProgress(1, detail = "Converting to Spatial format...")
+
+        return(as(shape_input, "Spatial"))
+      })
     })
 
     plot_data <- eventReactive(input$plot_button, {
-      req(input$res, input$output, input$shapefile)
+      withProgress(message = 'Generating plot...', value = 0, {
+        req(input$res, input$output, input$shapefile)
 
-      cleaned_data <- reformatted_data() %>%
-        filter(!is.na(year))
-      
-      num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
-      if (num_filtered > 0) {
-        showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
-      }
+        incProgress(0.2, detail = "Cleaning data...")
+        cleaned_data <- reformatted_data() %>%
+          filter(!is.na(year))
+        
+        num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
+        if (num_filtered > 0) {
+          showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
+        }
 
-      if (input$periodtype == "ranges") {
-        ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-        year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-        periods <- lapply(year_ranges, function(range) {
-          from <- range[1]
-          to <- range[2]
-          return(seq(from = from, to = to))
-        })
-      } else {
-        periods <- sort(unique(cleaned_data$year))
-      }
+        incProgress(0.4, detail = "Processing time periods...")
+        if (input$periodtype == "ranges") {
+          ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+          year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+          periods <- lapply(year_ranges, function(range) {
+            from <- range[1]
+            to <- range[2]
+            return(seq(from = from, to = to))
+          })
+        } else {
+          periods <- sort(unique(cleaned_data$year))
+        }
 
-      spat_cov <- assessSpatialCov(
-        dat = cleaned_data,
-        periods = periods,
-        res = input$res,
-        logCount = input$log,
-        shp = sp_df(),
-        species = "species",
-        x = "longitude",
-        y = "latitude",
-        year = "year",
-        spatialUncertainty = NULL,
-        maxSpatUncertainty = NULL,
-        identifier = "identifier",
-        output = input$output
-      )
+        incProgress(0.6, detail = "Calculating spatial coverage...")
+        spat_cov <- assessSpatialCov(
+          dat = cleaned_data,
+          periods = periods,
+          res = input$res,
+          logCount = input$log,
+          shp = sp_df(),
+          species = "species",
+          x = "longitude",
+          y = "latitude",
+          year = "year",
+          spatialUncertainty = NULL,
+          maxSpatUncertainty = NULL,
+          identifier = "identifier",
+          output = input$output
+        )
 
-      plot <- do.call(ggpubr::ggarrange, spat_cov)
+        incProgress(0.8, detail = "Finalizing plot...")
 
-      list(plot = plot)
+        plot <- do.call(ggpubr::ggarrange, spat_cov)
+
+        incProgress(1, detail = "Plot ready!")
+        
+        list(plot = plot)
+      })
     })
 
     output$space_cov_plot <- renderPlot({
