@@ -144,8 +144,8 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
                                   nSamps = input$nSamps,
                                   degrade = TRUE,
                                   species = "species",
-                                  x = "longitude",
-                                  y = "latitude",
+                                  x = "easting",
+                                  y = "northing",
                                   year = "year", 
                                   spatialUncertainty = "spat_uncert",
                                   identifier = "identifier")$plot

@@ -32,7 +32,7 @@ app_ui <- function(request) {
               selected = "format_a"
             ),
 
-            uiOutput("lat_lon_ui"),  # This will also use selectInput in the server
+            uiOutput("northing_easting_ui"),  # This will also use selectInput in the server
 
             selectInput("id", "Choose the identifier", choices = NULL),
 
