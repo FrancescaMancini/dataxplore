@@ -12,6 +12,7 @@
 #'
 mod_space_cov_tab_ui <- function(id){
   ns <- NS(id)
+
   tagList(
     sidebarLayout(
       sidebarPanel(
@@ -24,8 +25,8 @@ mod_space_cov_tab_ui <- function(id){
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
         numericInput(ns("res"), "Spatial resolution", value = 1000),
-        # selectInput(ns("country"), "Country", c("UK", "England", "Wales", "Scotland")),
-        fileInput(ns("shapefile"), "Select your shapefile and file extensions.",
+        selectInput(ns("country"), "Country", choices = NULL, selected = FALSE),
+        fileInput(ns("shapefile"), "(Alternative to Country selection) Provide a shapefile of your survey region and file extensions. Note this supercedes the selection of country.",
                   accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE),
         selectInput(ns("log"), "Log count", c("TRUE", "FALSE"), selected = FALSE),
         selectInput(ns("output"), "Output", c("density", "Overlap", "Number of periods")),
@@ -48,9 +49,10 @@ mod_space_cov_tab_ui <- function(id){
 }
 
 #' space_cov_tab Server Functions
-#'
+#' 
+#' 
 #' @noRd
-mod_space_cov_tab_server <- function(id, reformatted_data){
+mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, countriesLow){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -81,37 +83,61 @@ mod_space_cov_tab_server <- function(id, reformatted_data){
       tagList(dateRanges)
     })
 
-    sp_df <- reactive({
-      req(input$shapefile)
-
-      withProgress(message = "Loading shapefile...", value = 0, {
-        # Temporary directory where files are uploaded
-        tempdirname <- dirname(input$shapefile$datapath[1])
-
-        # Rename files
-        for (i in 1:nrow(input$shapefile)) {
-          file.rename(
-            input$shapefile$datapath[i],
-            paste0(tempdirname, "/", input$shapefile$name[i])
-          )
-        }
-
-        incProgress(0.5, detail = "Reading shapefile...")
-
-        # Read the shapefile using st_read from sf package
-        shape_input <- sf::st_read(paste(tempdirname,
-                                     input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
-                                     sep = "/"))
-
-        incProgress(1, detail = "Converting to Spatial format...")
-
-        return(as(shape_input, "Spatial"))
-      })
+    observe({
+        updateSelectInput(session, "country", choices = iso_2_country_names$country)
     })
 
+    # Reactive for uploaded shapefile
+    sp_df <- reactive({
+    if (!is.null(input$shapefile)) {
+        withProgress(message = "Loading shapefile...", value = 0, {
+            tempdirname <- dirname(input$shapefile$datapath[1])
+            
+            # Rename files to maintain the correct format
+            for (i in 1:nrow(input$shapefile)) {
+                file.rename(
+                    input$shapefile$datapath[i],
+                    paste0(tempdirname, "/", input$shapefile$name[i])
+                )
+            }
+            
+            incProgress(0.5, detail = "Reading shapefile...")
+            
+            # Read the shapefile
+            shape_input <- sf::st_read(paste(tempdirname,
+                                input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
+                                sep = "/"))
+
+            incProgress(1, detail = "Converting to Spatial format...")
+            
+            return(as(shape_input, "Spatial"))
+        })
+    } else if (!is.null(input$country) && input$country != "") {
+        # If the user selects a country from the dropdown
+        iso_2_selected <- iso_2_country_names %>%
+            filter(country == input$country) %>%
+            pull(iso2)
+        
+        if (length(iso_2_selected) == 0) return(NULL)  # Handle invalid selection
+        
+        country_shape <- countriesLow[countriesLow$ISO_A2 == iso_2_selected, ]
+        
+        if (nrow(country_shape) == 0) return(NULL)
+
+        # 🔹 Apply the same CRS transformation as the uploaded shapefile
+        country_shape <- spTransform(country_shape, CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs"))
+        
+        return(country_shape)  # Now in the correct projection
+    } else {
+        return(NULL)  # If neither option is selected
+    }
+})
+
     plot_data <- eventReactive(input$plot_button, {
+
+      browser()
       withProgress(message = 'Generating plot...', value = 0, {
-        req(input$res, input$output, input$shapefile)
+        req(input$res, input$output, sp_df())
 
         incProgress(0.2, detail = "Cleaning data...")
         cleaned_data <- reformatted_data() %>%
