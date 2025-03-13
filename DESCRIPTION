@@ -17,6 +17,7 @@ Imports:
     sf,
     shinipsum,
     rworldmap,
+    shinyhelper,
     shiny (>= 1.7.5),
     spData,
     vroom,

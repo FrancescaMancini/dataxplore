@@ -11,6 +11,8 @@
 #' @importFrom bslib tooltip
 #' @importFrom bsicons bs_icon
 #' @importFrom shinyWidgets numericRangeInput
+#' @import shinyhelper
+#' 
 
 # UI Function
 
@@ -25,7 +27,10 @@ mod_time_bias_tab_ui <- function(id) {
           choiceNames = list("Years", "Year ranges"),
           choiceValues = list("years", "ranges"),
           selected = "years"
-        ),
+        ) %>%
+        helper(icon = "info-circle", colour = "black", 
+          content = "time_period",
+          type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
         actionButton(

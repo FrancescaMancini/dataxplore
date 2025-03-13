@@ -10,6 +10,9 @@ app_server <- function(input, output, session) {
   # Increase memory to accommodate larger tables
   options(shiny.maxRequestSize = 500 * 1024^2)
 
+  # Needed to make helper buttons responsive
+  observe_helpers(help_dir = "help_md")
+
   uploaded_data <- reactiveVal()
 
   # Handle file upload

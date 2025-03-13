@@ -7,6 +7,8 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
+#' @import shinyhelper
+#' 
 mod_species_bias_tab_ui <- function(id){
   ns <- NS(id)
   tagList(
@@ -17,7 +19,10 @@ mod_species_bias_tab_ui <- function(id){
           choiceNames = list("Years", "Year ranges"),
           choiceValues = list("years", "ranges"),
           selected = "years"
-        ),
+        ) %>%
+        helper(icon = "info-circle", colour = "black", 
+          content = "time_period",
+          type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
         selectInput(
@@ -27,11 +32,17 @@ mod_species_bias_tab_ui <- function(id){
         numericInput(
           ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
           value = 10000
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "maximum_spatial_uncertainty",
+                  type = "markdown"),
         selectInput(
           ns("norm"), "Normalize",
           choices = c("Yes", "No")
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "normalize",
+                  type = "markdown"),
         actionButton(
           ns("plot_button"), "Plot"
         ),

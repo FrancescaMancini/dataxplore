@@ -8,7 +8,7 @@
 #'
 #' @importFrom shiny NS tagList
 #' @importFrom methods as
-#' @import sp
+#' @import sp shinyhelper
 #'
 mod_space_cov_tab_ui <- function(id){
   ns <- NS(id)
@@ -21,15 +21,33 @@ mod_space_cov_tab_ui <- function(id){
           choiceNames = list("Years", "Year ranges"),
           choiceValues = list("years", "ranges"),
           selected = "years"
-        ),
+        ) %>%
+        helper(icon = "info-circle", colour = "black", 
+          content = "time_period",
+          type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
-        numericInput(ns("res"), "Spatial resolution", value = 1000),
-        selectInput(ns("country"), "Country", choices = NULL, selected = FALSE),
+        numericInput(ns("res"), "Spatial resolution", value = 1000) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "spatial_resolution",
+                  type = "markdown"),
+        selectInput(ns("country"), "Country", choices = NULL, selected = FALSE) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "country",
+                  type = "markdown"),
         fileInput(ns("shapefile"), "(Alternative to Country selection) Provide a shapefile of your survey region and file extensions. Note this supercedes the selection of country.",
-                  accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE),
-        selectInput(ns("log"), "Log count", c("TRUE", "FALSE"), selected = FALSE),
-        selectInput(ns("output"), "Output", c("density", "Overlap", "Number of periods")),
+                  accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "shape_file",
+                  type = "markdown"),
+        selectInput(ns("log"), "Log count", c("TRUE", "FALSE"), selected = FALSE) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "log_count",
+                  type = "markdown"),
+        selectInput(ns("output"), "Output", c("density", "Overlap", "Number of periods")) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "output",
+                  type = "markdown"),
         actionButton(ns("plot_button"), "Plot"),
         checkboxInput(ns("report"), "Add to report", FALSE)
       ),

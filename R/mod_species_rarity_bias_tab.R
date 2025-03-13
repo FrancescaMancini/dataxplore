@@ -7,6 +7,7 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
+#' @import shinyhelper
 mod_species_rarity_bias_tab_ui <- function(id){
   ns <- NS(id)
   tagList(
@@ -17,26 +18,41 @@ mod_species_rarity_bias_tab_ui <- function(id){
           choiceNames = list("Years", "Year ranges"),
           choiceValues = list("years", "ranges"),
           selected = "years"
-        ),
+        ) %>%
+        helper(icon = "info-circle", colour = "black", 
+          content = "time_period",
+          type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
         numericInput(
           ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
           value = 10000
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "maximum_spatial_uncertainty",
+                  type = "markdown"),
         numericInput(
           ns("res"), "Resolution",
           value = 10000
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "resolution",
+                  type = "markdown"),
         selectInput(
           ns("prev"), "Calculate prevalence per period",
           choices = c("Yes", "No")
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "prevalence_per_period",
+                  type = "markdown"),
         selectInput(
           ns("metric"), "Metric",
           choices = c("Coefficient of variation",
                       "Pearson's correlation")
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "metric",
+                  type = "markdown"),
         actionButton(
           ns("plot_button"), "Plot"
         ),

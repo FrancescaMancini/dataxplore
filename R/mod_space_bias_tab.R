@@ -7,7 +7,7 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
-#' @import raster
+#' @import raster dplyr shinyhelper
 #' 
 mod_space_bias_tab_ui <- function(id){
   ns <- NS(id)
@@ -23,20 +23,32 @@ mod_space_bias_tab_ui <- function(id){
         choiceNames = list("Years", "Year ranges"),
         choiceValues = list("years", "ranges"),
         selected = "years"
-      ),
+      ) %>%
+        helper(icon = "info-circle", colour = "black", 
+          content = "time_period",
+          type = "markdown"),
       uiOutput(ns("numUI")),
       uiOutput(ns("dateRangesUI")),
         numericInput(ns("num"),
                      "Time periods",
                      value = 1, min = 1, max = Inf
         ),
-      selectInput(ns("country"), "Country", choices = NULL, selected = FALSE),
+      selectInput(ns("country"), "Country", choices = NULL, selected = FALSE) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "country",
+                  type = "markdown"),
       fileInput(ns("shapefile"), "(Alternative to Country selection) Provide a shapefile of your survey region and file extensions. Note this supercedes the selection of country.",
-                  accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE),
+                  accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "shape_file_mask",
+                  type = "markdown"),
         numericInput(
           ns("nSamps"), "Number of iterations",
           value = 50
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "iteration",
+                  type = "markdown"),
         actionButton(
           ns("plot_button"), "Plot"
         ),
