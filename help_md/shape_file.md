@@ -1,0 +1,3 @@
+# Shape file field
+
+Either a selection of country, or a shape file defining the boundary of the survey region. If the user provides a shape file, in most cases it will be a single layer. However, where the identifier field is used to subset the data spatially (e.g. splitting it by country, continent, etc.) then the shapefile should have n layers, where n is equal to the number of levels in the identifier field. The shapefile may have fewer layers than the number of levels in identifier field when identifier refers to spatial subsets, but any rows in dat with an identifier for which there is no layer in shapefile will be dropped.

@@ -7,7 +7,7 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
-#' @import raster
+#' @import raster dplyr shinyhelper
 #' 
 mod_space_bias_tab_ui <- function(id){
   ns <- NS(id)
@@ -23,17 +23,32 @@ mod_space_bias_tab_ui <- function(id){
         choiceNames = list("Years", "Year ranges"),
         choiceValues = list("years", "ranges"),
         selected = "years"
-      ),
+      ) %>%
+        helper(icon = "info-circle", colour = "black", 
+          content = "time_period",
+          type = "markdown"),
       uiOutput(ns("numUI")),
       uiOutput(ns("dateRangesUI")),
         numericInput(ns("num"),
                      "Time periods",
                      value = 1, min = 1, max = Inf
         ),
+      selectInput(ns("country"), "Country", choices = NULL, selected = FALSE) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "country",
+                  type = "markdown"),
+      fileInput(ns("shapefile"), "(Alternative to Country selection) Provide a shapefile of your survey region and file extensions. Note this supercedes the selection of country.",
+                  accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "shape_file_mask",
+                  type = "markdown"),
         numericInput(
           ns("nSamps"), "Number of iterations",
           value = 50
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "iteration",
+                  type = "markdown"),
         actionButton(
           ns("plot_button"), "Plot"
         ),
@@ -64,7 +79,7 @@ mod_space_bias_tab_ui <- function(id){
 #' space_bias_tab Server Functions
 #'
 #' @noRd
-mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reformatted_data){
+mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reformatted_data, iso_2_country_names, countriesLow){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -96,6 +111,10 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
       tagList(dateRanges)
     })
 
+    observe({
+      updateSelectInput(session, "country", choices = iso_2_country_names$country)
+    })
+
     observeEvent(uploaded_data(), {
       updateSelectInput(session, "spat_uncert",
                         choices = names(uploaded_data()),
@@ -103,9 +122,56 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
       )
     })
 
+        # Reactive for uploaded shapefile
+    sp_df <- reactive({
+    if (!is.null(input$shapefile)) {
+        withProgress(message = "Loading shapefile...", value = 0, {
+            tempdirname <- dirname(input$shapefile$datapath[1])
+            
+            # Rename files to maintain the correct format
+            for (i in 1:nrow(input$shapefile)) {
+                file.rename(
+                    input$shapefile$datapath[i],
+                    paste0(tempdirname, "/", input$shapefile$name[i])
+                )
+            }
+            
+            incProgress(0.5, detail = "Reading shapefile...")
+            
+            # Read the shapefile
+            shape_input <- sf::st_read(paste(tempdirname,
+                                input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
+                                sep = "/"))
+
+            incProgress(1, detail = "Converting to Spatial format...")
+            
+            return(as(shape_input, "Spatial"))
+        })
+    } else if (!is.null(input$country) && input$country != "") {
+        # If the user selects a country from the dropdown
+        iso_2_selected <- iso_2_country_names %>%
+            filter(country == input$country) %>%
+            pull(iso2)
+        
+        if (length(iso_2_selected) == 0) return(NULL)  # Handle invalid selection
+        
+        country_shape <- countriesLow[countriesLow$ISO_A2 == iso_2_selected, ]
+        
+        if (nrow(country_shape) == 0) return(NULL)
+
+        # 🔹 Apply the same CRS transformation as the uploaded shapefile
+        country_shape <- spTransform(country_shape, CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs"))
+        
+        return(country_shape)  # Now in the correct projection
+    } else {
+        return(NULL)  # If neither option is selected
+    }
+})
+
+
     plot_data <- eventReactive(input$plot_button, {
       withProgress(message = 'Generating plot...', value = 0, {
-        req(reformatted_data(), input$nSamps, module_outputs$mod_space_cov_tab()$sp_df)
+        req(reformatted_data(), input$nSamps, sp_df())
 
         incProgress(0.2, detail = "Cleaning data...")
         cleaned_data <- reformatted_data() %>%
@@ -130,8 +196,8 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
         }
 
         incProgress(0.6, detail = "Creating raster mask...")
-        mask <- rasterize(module_outputs$mod_space_cov_tab()$sp_df, 
-                          raster(nrow = 1000, ncol = 1000, extent(module_outputs$mod_space_cov_tab()$sp_df)))
+        mask <- rasterize(sp_df(), 
+                          raster(nrow = 1000, ncol = 1000, extent(sp_df())))
 
         incProgress(0.8, detail = "Calculating spatial bias...")
 
@@ -144,8 +210,8 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
                                   nSamps = input$nSamps,
                                   degrade = TRUE,
                                   species = "species",
-                                  x = "longitude",
-                                  y = "latitude",
+                                  x = "easting",
+                                  y = "northing",
                                   year = "year", 
                                   spatialUncertainty = "spat_uncert",
                                   identifier = "identifier")$plot

@@ -7,6 +7,7 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
+#' @import shinyhelper
 mod_species_id_bias_tab_ui <- function(id){
   ns <- NS(id)
   tagList(
@@ -17,13 +18,19 @@ mod_species_id_bias_tab_ui <- function(id){
           choiceNames = list("Years", "Year ranges"),
           choiceValues = list("years", "ranges"),
           selected = "years"
-        ),
+        ) %>%
+        helper(icon = "info-circle", colour = "black", 
+          content = "time_period",
+          type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
         numericInput(
           ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
           value = 10000
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "maximum_spatial_uncertainty",
+                  type = "markdown"),
         selectInput(
           ns("type"), "Type",
           choices = c("count", "proportion")
@@ -114,8 +121,8 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, re
         dat = cleaned_data,
         species = "species",
         periods = periods,
-        x = "longitude",
-        y = "latitude",
+        x = "easting",
+        y = "northing",
         year = "year",
         spatialUncertainty = module_outputs$mod_species_bias_tab()$spat_uncert,
         identifier = "identifier",

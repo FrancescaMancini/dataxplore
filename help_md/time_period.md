@@ -1,0 +1,3 @@
+# Time periods field
+
+The metric can be calculated for each year in the dataset or for a set of time periods covering multiple years. If the models that will be applied to the data are static distribution models that do not model temporal variability, then it would be useful to specify one time period covering all the years in the dataset. If the data is to be modelled with a temporal resolution of a year then the user should tick the "Years" option. If the data is to be aggregated in time intervals of 5 years then 5 year ranges and their start and end year should be specified.
