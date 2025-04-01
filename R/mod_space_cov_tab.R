@@ -153,7 +153,6 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
 
     plot_data <- eventReactive(input$plot_button, {
 
-      browser()
       withProgress(message = 'Generating plot...', value = 0, {
         req(input$res, input$output, sp_df())
 
