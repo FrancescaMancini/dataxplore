@@ -111,47 +111,66 @@ mod_environment_bias_tab_server <- function(id, reformatted_data){
     return(monad)
   }
 
-  plot <- eventReactive(input$plot_button, {
+plot <- eventReactive(input$plot_button, {
+  req(reformatted_data(), input$n_breaks, input$env_var_column)
 
-      if (input$periodtype == "ranges") {
-      ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-      year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-      periods <- lapply(year_ranges, function(range) {
-        from <- range[1]
-        to <- range[2]
-        return(seq(from = from, to = to))
-      })
-    } else {
-      periods <- sort(unique(cleaned_data$year))
-    }
+  # 1. Define periods based on input
+  if (input$periodtype == "ranges") {
+    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+    periods <- lapply(year_ranges, function(range) seq(from = range[1], to = range[2]))
+  } else {
+    unique_years_range <- range(unique(reformatted_data()$year))
+    periods <- list(seq(from = unique_years_range[1], to = unique_years_range[2]))
+  }
 
-      req(reformatted_data(), input$n_breaks, input$env_var_column)
+  # 2. Convert easting/northing to monads in reformatted_data
+  positions <- reformatted_data() %>%
+    dplyr::select(easting, northing, year) %>%
+    mutate(monad = mapply(convert_bng_to_monad, easting, northing))
 
-      positions = reformatted_data() %>% dplyr::select(easting, northing) %>% distinct()
+  # 3. Create base environmental data with monads from aux_file
+  env_data <- aux_file
 
-      positions$monad = mapply(convert_bng_to_monad,
-                                 positions$easting,
-                                 positions$northing)
+  # 4. Add presence column for each period
+  for (i in seq_along(periods)) {
+    period_years <- periods[[i]]
 
-      env_data = aux_file %>%
-      mutate(presence = ifelse(monad %in% positions$monad, 1, 0))
-      
-      env_bias = assessBias1D_modified(pop = env_data,
-              breaks = input$n_breaks, 
-              R = "presence",
-              x = input$env_var_column,
-              RNames = input$env_var_column)
+    monads_in_period <- positions %>%
+      filter(year %in% period_years) %>%
+      distinct(monad) %>%
+      pull(monad)
 
-      return(env_bias$plot)
-    })
+    colname <- paste0("presence_", i)
+    env_data[[colname]] <- ifelse(env_data$monad %in% monads_in_period, 1, 0)
+  }
 
-    output$env_bias_plot <- renderPlot({
-      plot()
-    })
+  # 5. Call assessBias1D_modified for each period and combine plots
+  plots <- lapply(seq_along(periods), function(i) {
+    presence_col <- paste0("presence_", i)
+
+    assessBias1D_modified(
+      pop = env_data,
+      breaks = input$n_breaks,
+      R = presence_col,
+      x = input$env_var_column,
+      RNames = presence_col
+    )$plot
+  })
+
+  # 6. Combine plots using patchwork
+  library(patchwork)
+  combined_plot <- wrap_plots(plots, ncol = 1)
+  return(combined_plot)
+})
+
+
+output$env_bias_plot <- renderPlot({
+  plot()
+  })
 
   })
 }
-
 
 # assessBias1D_modified(pop = callunaData,
 #                     breaks = 50, 
