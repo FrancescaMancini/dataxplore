@@ -32,7 +32,8 @@ Imports:
     sp,
     tools,
     methods,
-    shinyWidgets
+    shinyWidgets,
+    pkgload
 Suggests: 
     spelling,
     testthat (>= 3.0.0)
