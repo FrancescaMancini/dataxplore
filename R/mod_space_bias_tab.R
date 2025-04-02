@@ -171,7 +171,7 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
 
     plot_data <- eventReactive(input$plot_button, {
       withProgress(message = 'Generating plot...', value = 0, {
-        req(reformatted_data(), input$nSamps, sp_df())
+        req(reformatted_data(), input$nSamps, sp_df(), input$spat_uncert)
 
         incProgress(0.2, detail = "Cleaning data...")
         cleaned_data <- reformatted_data() %>%

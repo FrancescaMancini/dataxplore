@@ -179,6 +179,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
         }
 
         incProgress(0.6, detail = "Calculating spatial coverage...")
+
         spat_cov <- assessSpatialCov(
           dat = cleaned_data,
           periods = periods,
