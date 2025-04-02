@@ -11,7 +11,7 @@
 
 mod_data_tab_ui <- function(id) {
   ns <- NS(id)
-  
+
   tagList(
     mainPanel(
       fluidRow(
@@ -50,21 +50,21 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
         group_by(Species = get(user_selections()$species)) %>%
         summarise(`Number of Records` = n())
     })
-    
+
     output$species_summary_table <- DT::renderDT({
       req(species_summary())
       species_summary()
     })
-    
+
     output$species_title <- renderText({
       req(user_selections()$species, input$species_summary_button)
       "Species Summary"
     })
-    
+
     # Date summary
     date_summary <- eventReactive(input$date_summary_button, {
       req(uploaded_data(), user_selections()$date, user_selections()$date_format)
-    
+
       dates = uploaded_data() %>% pull(user_selections()$date)
 
         if (user_selections()$date_format == "format_a") {
@@ -78,17 +78,17 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
       data.frame(`First Record` = min(dates), `Last Record` = max(dates))
 
     })
-    
+
     output$date_summary_table <- DT::renderDT({
       req(date_summary())
       date_summary()
     })
-    
+
     output$date_title <- renderText({
       req(user_selections()$date, input$date_summary_button)
       "Date Summary"
     })
-    
+
     # Number of records per year
     year_summary <- eventReactive(input$year_summary_button, {
       req(uploaded_data(), user_selections()$date, user_selections()$date_format)
@@ -103,21 +103,21 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
           dates <- lubridate::ymd(dates, quiet = TRUE)
         }
 
-      data.frame(Year = year(dates)) %>% 
-      group_by(Year) %>% 
+      data.frame(Year = year(dates)) %>%
+      group_by(Year) %>%
       summarise(`Number of Records` = n())
     })
-    
+
     output$year_summary_table <- DT::renderDT({
       req(year_summary())
       year_summary()
     })
-    
+
     output$year_title <- renderText({
       req(user_selections()$date, input$year_summary_button)
       "Year Summary"
     })
-    
+
     # Number of records per group (ID)
     id_summary <- eventReactive(input$id_summary_button, {
       req(uploaded_data(), user_selections()$id, user_selections()$species)
@@ -128,35 +128,35 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
           `Number of Species` = n_distinct(get(user_selections()$species))
         )
     })
-    
+
     output$id_summary_table <- DT::renderDT({
       req(id_summary())
       id_summary()
     })
-    
+
     output$id_title <- renderText({
       req(user_selections()$id, input$id_summary_button)
       "Identifier Summary"
     })
-    
+
     # Bounding box
     bbox <- eventReactive(input$coords_summary_button, {
       req(uploaded_data(), user_selections()$northing, user_selections()$easting)
       uploaded_data() %>%
         dplyr::select(user_selections()$northing, user_selections()$easting) %>%
         summarise(
-          `Latitude Min` = min(eval(as.name(user_selections()$northing))),
-          `Latitude Max` = max(eval(as.name(user_selections()$northing))),
+          `Northing Min` = min(eval(as.name(user_selections()$northing))),
+          `Northing Max` = max(eval(as.name(user_selections()$northing))),
           `Easting Min` = min(eval(as.name(user_selections()$easting))),
           `Easting Max` = max(eval(as.name(user_selections()$easting)))
         )
     })
-    
+
     output$coords_summary_table <- DT::renderDT({
       req(bbox())
       bbox()
     })
-    
+
     output$coords_title <- renderText({
       req(user_selections()$northing, user_selections()$easting, input$coords_summary_button)
       "Bounding Box"

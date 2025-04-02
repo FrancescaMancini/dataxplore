@@ -14,6 +14,11 @@ run_app <- function(
   uiPattern = "/",
   ...
 ) {
+
+  if (!require("occAssess")){
+    install_github("https://github.com/robboyd/occAssess.git")
+  }
+
   with_golem_options(
     app = shinyApp(
       ui = app_ui,

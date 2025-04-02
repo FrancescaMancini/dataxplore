@@ -8,7 +8,7 @@
 #'
 #' @importFrom shiny NS tagList
 #' @import shinyhelper
-#' 
+#'
 mod_species_bias_tab_ui <- function(id){
   ns <- NS(id)
   tagList(
@@ -20,7 +20,7 @@ mod_species_bias_tab_ui <- function(id){
           choiceValues = list("years", "ranges"),
           selected = "years"
         ) %>%
-        helper(icon = "info-circle", colour = "black", 
+        helper(icon = "info-circle", colour = "black",
           content = "time_period",
           type = "markdown"),
         uiOutput(ns("numUI")),
@@ -33,14 +33,14 @@ mod_species_bias_tab_ui <- function(id){
           ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
           value = 10000
         ) %>%
-          helper(icon = "info-circle", colour = "black", 
+          helper(icon = "info-circle", colour = "black",
                   content = "maximum_spatial_uncertainty",
                   type = "markdown"),
         selectInput(
           ns("norm"), "Normalize",
           choices = c("Yes", "No")
         ) %>%
-          helper(icon = "info-circle", colour = "black", 
+          helper(icon = "info-circle", colour = "black",
                   content = "normalize",
                   type = "markdown"),
         actionButton(
@@ -85,14 +85,14 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
 
     output$dateRangesUI <- renderUI({
       req(input$periodtype == "ranges", input$num)
-      
+
       min_year <- reformatted_data() %>%
         summarise(min_year = min(year, na.rm = TRUE)) %>%
         pull(min_year)
       max_year <- reformatted_data() %>%
         summarise(max_year = max(year, na.rm = TRUE)) %>%
         pull(max_year)
-      
+
       dateRanges <- lapply(1:input$num, function(i) {
         numericRangeInput(ns(paste0("dates_", i)),
                           label = paste("Year range", i),
@@ -109,7 +109,7 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
         dplyr::select(input$spat_uncert) %>%
         cbind(reformatted_data()) %>%
         filter(!is.na(year))
-      
+
       num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
       if (num_filtered > 0) {
         showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
@@ -131,8 +131,8 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
         dat = cleaned_data,
         species = "species",
         periods = periods,
-        x = "longitude",
-        y = "latitude",
+        x = "easting",
+        y = "northing",
         year = "year",
         spatialUncertainty = input$spat_uncert,
         identifier = "identifier",
