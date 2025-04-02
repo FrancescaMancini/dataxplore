@@ -1,0 +1,10 @@
+name: dataxplore
+title:
+username: DylCar
+account: DylCar
+server: connect-apps.ceh.ac.uk
+hostUrl: https://connect-apps.ceh.ac.uk/__api__
+appId: 422
+bundleId:
+url: https://connect-apps.ceh.ac.uk/content/6675d589-8efd-4c70-b314-145da03b760c/
+version: 1

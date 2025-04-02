@@ -2,7 +2,7 @@
 #'
 #' @param input,output,session Internal parameters for {shiny}.
 #'     DO NOT REMOVE.
-#' @import shiny dplyr sf
+#' @import shiny dplyr sf vroom
 #' @noRd
 
 app_server <- function(input, output, session) {
@@ -24,6 +24,9 @@ app_server <- function(input, output, session) {
       txt = vroom(input$upload$datapath, delim = "\t"),
       stop("Invalid file; Please upload a .csv or .txt file")
     )
+
+    data = as.data.frame(data)
+
     uploaded_data(data)
   })
 
