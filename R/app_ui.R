@@ -18,7 +18,7 @@ app_ui <- function(request) {
         sidebarLayout(
           sidebarPanel(
             fileInput("upload", "Upload your data", accept = c(".csv", ".txt")),
-            checkboxInput("grid_ref", "Convert British National Grid References", FALSE),
+            checkboxInput("grid_ref", "Do you want to convert British grid references to easting and northing", FALSE),
             tags$div(id = "placeholder"),
             selectInput("species", "Species column", choices = NULL),
             selectInput("date", "Date column", choices = NULL),

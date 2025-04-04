@@ -122,8 +122,7 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
       )
     })
 
-        # Reactive for uploaded shapefile
-    sp_df <- reactive({
+sp_df <- eventReactive(input$plot_button, {
     if (!is.null(input$shapefile)) {
         withProgress(message = "Loading shapefile...", value = 0, {
             tempdirname <- dirname(input$shapefile$datapath[1])
@@ -138,40 +137,56 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
             
             incProgress(0.5, detail = "Reading shapefile...")
             
-            # Read the shapefile
-            shape_input <- sf::st_read(paste(tempdirname,
-                                input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
-                                sep = "/"))
+            # Read shapefile using `sf`
+            shape_input <- sf::st_read(paste(
+                tempdirname,
+                input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
+                sep = "/"
+            ))
 
-            incProgress(1, detail = "Converting to Spatial format...")
+            incProgress(0.8, detail = "Converting to Spatial format...")
+
+            # Convert to sp object
+            shape_sp <- as(shape_input, "Spatial")
+
+            # 🔹 Reproject to British National Grid
+            shape_sp <- spTransform(
+                shape_sp,
+                CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+            )
+
+            incProgress(1, detail = "Done")
             
-            return(as(shape_input, "Spatial"))
+            return(shape_sp)
         })
     } else if (!is.null(input$country) && input$country != "") {
+
         # If the user selects a country from the dropdown
         iso_2_selected <- iso_2_country_names %>%
             filter(country == input$country) %>%
             pull(iso2)
         
-        if (length(iso_2_selected) == 0) return(NULL)  # Handle invalid selection
+        if (length(iso_2_selected) == 0) return(NULL)
         
         country_shape <- countriesLow[countriesLow$ISO_A2 == iso_2_selected, ]
         
         if (nrow(country_shape) == 0) return(NULL)
 
-        # 🔹 Apply the same CRS transformation as the uploaded shapefile
-        country_shape <- spTransform(country_shape, CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs"))
+        # Reproject to British National Grid
+        country_shape <- spTransform(
+            country_shape,
+            CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+        )
         
-        return(country_shape)  # Now in the correct projection
+        return(country_shape)
     } else {
-        return(NULL)  # If neither option is selected
+        return(NULL)
     }
 })
 
-
     plot_data <- eventReactive(input$plot_button, {
       withProgress(message = 'Generating plot...', value = 0, {
-        req(reformatted_data(), input$nSamps, sp_df())
+        req(reformatted_data(), input$nSamps, sp_df(), input$spat_uncert)
 
         incProgress(0.2, detail = "Cleaning data...")
         cleaned_data <- reformatted_data() %>%

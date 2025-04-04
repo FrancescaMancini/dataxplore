@@ -120,7 +120,7 @@ plot <- eventReactive(input$plot_button, {
     year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
     periods <- lapply(year_ranges, function(range) seq(from = range[1], to = range[2]))
   } else {
-    unique_years_range <- range(unique(reformatted_data()$year))
+    unique_years_range <- range(unique(reformatted_data()$year), na.rm = TRUE)
     periods <- list(seq(from = unique_years_range[1], to = unique_years_range[2]))
   }
 
