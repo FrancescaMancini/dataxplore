@@ -11,3 +11,13 @@ write.csv(iso2_df, "iso_2_country_name.csv")
 
 iso_2_country_names = read.csv("iso_2_country_name.csv") %>% dplyr::select(-X)
 usethis::use_data(iso_2_country_names, overwrite = TRUE)
+
+
+# document("../occAssess")
+# load_all("../occAssess")
+
+library(devtools)
+
+document()
+load_all()
+run_app()

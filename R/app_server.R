@@ -30,17 +30,17 @@ app_server <- function(input, output, session) {
     uploaded_data(data)
   })
 
-  # Generate UI elements for northing and easting inputs dynamically using selectInput
+  # Generate UI elements for latitude and longitude inputs dynamically using selectInput
   output$northing_easting_ui <- renderUI({
 
     if (!input$grid_ref) {
       tagList(
-        selectInput("northing", "Northing column", choices = c(), selected = FALSE),
-        selectInput("easting", "Easting column", choices = c(), selected = FALSE),
-        checkboxInput("convert_osgb36", "Are you using decimal degrees?")
+        selectInput("latitude", "Latitude column", choices = c(), selected = FALSE),
+        selectInput("longitude", "Longitude column", choices = c(), selected = FALSE),
+        checkboxInput("convert_northing_easting", "Are you using northing and easting coordinates?")
       )
     } else {
-      NULL  # Remove northing/easting inputs when grid reference conversion is selected
+      NULL  # Remove latitude/longitude inputs when grid reference conversion is selected
     }
   })
 
@@ -54,16 +54,16 @@ app_server <- function(input, output, session) {
     updateSelectInput(session, "date", choices = col_choices, selected = FALSE)
     updateSelectInput(session, "id", choices = col_choices, selected = FALSE)
     updateSelectInput(session, "grid_ref_column", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "northing", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "easting", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "latitude", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "longitude", choices = col_choices, selected = FALSE)
   })
 
   observeEvent(input$grid_ref, {
 
     req(uploaded_data())
 
-    updateSelectInput(session, "northing", choices = colnames(uploaded_data()), selected = FALSE)
-    updateSelectInput(session, "easting", choices = colnames(uploaded_data()), selected = FALSE)
+    updateSelectInput(session, "latitude", choices = colnames(uploaded_data()), selected = FALSE)
+    updateSelectInput(session, "longitude", choices = colnames(uploaded_data()), selected = FALSE)
 
   })
 
@@ -83,7 +83,7 @@ app_server <- function(input, output, session) {
     }
   })
 
-  # New reactive value to store northing/easting conversion results with default value
+  # New reactive value to store latitude/longitude conversion results with default value
   conversion_result <- reactiveVal()
 
   observeEvent(input$grid_ref_convert, {
@@ -91,10 +91,10 @@ app_server <- function(input, output, session) {
 
     sites <- pull(uploaded_data(), eval(as.symbol(input$grid_ref_column)))
 
-    # Assuming 'osg_parse' is a function that converts grid references to northing/easting
-    result <- osg_parse(grid_refs = sites, coord_system = "BNG")
+    # Assuming 'osg_parse' is a function that converts grid references to latitude/longitude
+    result <- osg_parse(grid_refs = sites, coord_system = "WGS84")
 
-    conversion_result(data.frame("northing" = result$northing, "easting" = result$easting))
+    conversion_result(data.frame("latitude" = result$latitude, "longitude" = result$longitude))
   })
 
   reformatted_data <- reactive({
@@ -102,12 +102,12 @@ app_server <- function(input, output, session) {
 
     data <- uploaded_data()
 
-    if (!is.null(conversion_result()) && "northing" %in% names(conversion_result()) && "easting" %in% names(conversion_result())) {
-      data$northing <- conversion_result()$northing
-      data$easting <- conversion_result()$easting
-      northing_easting_names <- as.character(c("northing", "easting"))
+    if (!is.null(conversion_result()) && "latitude" %in% names(conversion_result()) && "longitude" %in% names(conversion_result())) {
+      data$latitude <- conversion_result()$latitude
+      data$longitude <- conversion_result()$longitude
+      latitude_longitude_names <- as.character(c("latitude", "longitude"))
     } else {
-      northing_easting_names <- as.character(c(input$northing, input$easting))
+      latitude_longitude_names <- as.character(c(input$latitude, input$longitude))
     }
 
     cols_to_select <- c(input$species, input$date, input$id)
@@ -139,37 +139,40 @@ app_server <- function(input, output, session) {
       formatted_data <- data.frame()
     }
 
-    if (length(northing_easting_names) == 2) {
+    if (length(latitude_longitude_names) == 2) {
 
       if (nrow(formatted_data) == 0) {
-        formatted_data <- dplyr::select(data, !!!syms(northing_easting_names))
+        formatted_data <- dplyr::select(data, !!!syms(latitude_longitude_names))
       } else {
-        formatted_data <- cbind(formatted_data, dplyr::select(data, !!!syms(northing_easting_names)))
+        formatted_data <- cbind(formatted_data, dplyr::select(data, !!!syms(latitude_longitude_names)))
       }
 
-      formatted_data <- rename(formatted_data, northing = !!sym(northing_easting_names[1]))
-      formatted_data <- rename(formatted_data, easting = !!sym(northing_easting_names[2]))
+      formatted_data <- rename(formatted_data, latitude = !!sym(latitude_longitude_names[1]))
+      formatted_data <- rename(formatted_data, longitude = !!sym(latitude_longitude_names[2]))
 
     }
 
     if (!input$grid_ref){
 
-      if(input$convert_osgb36 && all(northing_easting_names != "")){
+      if(input$convert_northing_easting && all(latitude_longitude_names != "")){
 
-      # Convert to an sf object
-      sf_data <- st_as_sf(data, coords = c(northing_easting_names[2], northing_easting_names[1]), crs = 4326)
+        # Convert to an sf object using British National Grid coordinates
+        sf_data_bng <- st_as_sf(data, coords = c(latitude_longitude_names[2], latitude_longitude_names[1]), crs = 27700)
 
-      # Transform to British National Grid (EPSG:27700)
-      sf_data_bng <- st_transform(sf_data, crs = 27700)
+        # Transform to WGS 84 (EPSG:4326) for latitude and longitude
+        sf_data <- st_transform(sf_data_bng, crs = 4326)
 
-      # Extract only the transformed coordinates as a new data frame
-      df_bng <- as.data.frame(st_coordinates(sf_data_bng))
+        # Extract only the transformed coordinates as a new data frame
+        df_latlon <- as.data.frame(st_coordinates(sf_data))
 
-      df_bng = rename(df_bng, northing = Y, easting = X) %>%
-      dplyr::select(northing, easting)
+        # Rename and keep same structure
+        df_latlon <- rename(df_latlon, latitude = Y, longitude = X) %>%
+          dplyr::select(latitude, longitude)
 
-      formatted_data = formatted_data %>% dplyr::select(-northing, -easting) %>% cbind(df_bng)
-
+        # Replace original coordinates in the data
+        formatted_data <- formatted_data %>%
+          dplyr::select(-latitude, -longitude) %>%
+          cbind(df_latlon)
       }
     }
 
@@ -191,8 +194,8 @@ app_server <- function(input, output, session) {
     date_format = NULL,
     year = NULL,
     id = NULL,
-    northing = NULL,
-    easting = NULL,
+    latitude = NULL,
+    longitude = NULL,
     grid_ref = NULL,
     grid_ref_convert = NULL,
     grid_ref_column = NULL
@@ -220,11 +223,11 @@ app_server <- function(input, output, session) {
   })
 
   observe({
-    input_tracker$northing <- input$northing
+    input_tracker$latitude <- input$latitude
   })
 
   observe({
-    input_tracker$easting <- input$easting
+    input_tracker$longitude <- input$longitude
   })
 
   observe({
@@ -247,8 +250,8 @@ app_server <- function(input, output, session) {
       date_format = input_tracker$date_format,
       year = input_tracker$year,
       id = input_tracker$id,
-      northing = input_tracker$northing,
-      easting = input_tracker$easting,
+      latitude = input_tracker$latitude,
+      longitude = input_tracker$longitude,
       grid_ref = input_tracker$grid_ref,
       grid_ref_convert = input_tracker$grid_ref_convert,
       grid_ref_column = input_tracker$grid_ref_column
