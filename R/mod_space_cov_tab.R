@@ -190,8 +190,6 @@ sp_df <- eventReactive(input$plot_button, {
 
         incProgress(0.6, detail = "Calculating spatial coverage...")
 
-        browser()
-
         spat_cov <- assessSpatialCov_modified(
           dat = cleaned_data,
           periods = periods,
