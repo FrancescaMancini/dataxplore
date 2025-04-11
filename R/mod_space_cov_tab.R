@@ -132,11 +132,8 @@ sp_df <- eventReactive(input$plot_button, {
             # Convert to sp object
             shape_sp <- as(shape_input, "Spatial")
 
-            # 🔹 Reproject to British National Grid
-            shape_sp <- spTransform(
-                shape_sp,
-                CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-            )
+            # 🔹 Reproject to wgs84
+            shape_sp <- spTransform(shape_sp, CRS("+proj=longlat +datum=WGS84"))
 
             incProgress(1, detail = "Done")
             
@@ -155,11 +152,8 @@ sp_df <- eventReactive(input$plot_button, {
         
         if (nrow(country_shape) == 0) return(NULL)
 
-        # Reproject to British National Grid
-        country_shape <- spTransform(
-            country_shape,
-            CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-        )
+        # Reproject to wgs84
+        country_shape <- spTransform(country_shape, sp::CRS(SRS_string = "EPSG:4326"))
         
         return(country_shape)
     } else {
@@ -196,20 +190,21 @@ sp_df <- eventReactive(input$plot_button, {
 
         incProgress(0.6, detail = "Calculating spatial coverage...")
 
-        spat_cov <- assessSpatialCov(
+        spat_cov <- assessSpatialCov_modified(
           dat = cleaned_data,
           periods = periods,
           res = input$res,
           logCount = input$log,
           shp = sp_df(),
           species = "species",
-          x = "easting",
-          y = "northing",
+          x = "longitude",
+          y = "latitude",
           year = "year",
           spatialUncertainty = NULL,
           maxSpatUncertainty = NULL,
           identifier = "identifier",
-          output = input$output
+          output = input$output,
+          crs = "WGS84"
         )
 
         incProgress(0.8, detail = "Finalizing plot...")

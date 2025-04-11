@@ -19,8 +19,7 @@ superpopulation modelling, etc. (Boyd et al. 2023).}
 
 \item{breaks}{Numeric. \code{assessBias1D_modified} calculates a relative frequency distribution of x in the sample and population, and breaks is the number of bins into which the distributions will be split.}
 
-\item{RNames}{String or character vector. Names of sample inclusion variables R. One name per element of R. Used for plots and other outputs.
-#' @param RNames String or character vector. Names of sample inclusion variables R. One name per element of R. Used for plots and other outputs.}
+\item{RNames}{String or character vector. Names of sample inclusion variables R. One name per element of R. Used for plots and other outputs.}
 
 \item{WNames}{String or character vector. Name of each set of weights. One name per set (this will often be 1). Used for plots and other outputs.}
 }
