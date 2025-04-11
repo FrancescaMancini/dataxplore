@@ -84,10 +84,13 @@ mod_environment_bias_tab_server <- function(id, reformatted_data){
       tagList(dateRanges)
     })
 
+  observe({
+    # Create a named vector: names = descriptions, values = auxcolumn codes
+    choices <- setNames(aux_file %>% distinct(auxcolumn, description) %>% pull(auxcolumn),
+                        aux_file %>% distinct(auxcolumn, description) %>% pull(description))
 
-    observe({
-        updateSelectInput(session, "env_var_column", choices = colnames(aux_file)[!colnames(aux_file) %in% c("x", "y", "monad")])
-    })
+    updateSelectInput(session, "env_var_column", choices = choices)
+  })
 
 convert_long_lat_to_monad <- function(longitude, latitude) {
   # Combine input and convert to sf
@@ -142,7 +145,11 @@ plot <- eventReactive(input$plot_button, {
       mutate(monad = convert_long_lat_to_monad(longitude, latitude))
 
     incProgress(0.5, detail = "Preparing environmental data...")
-    env_data <- aux_file
+
+    env_data <- aux_file %>%
+    filter(auxcolumn == input$env_var_column) %>%
+    dplyr::select(monad, value) %>%
+    rename(!!input$env_var_column := value)
 
     # 3. Add presence column per period
     for (i in seq_along(periods)) {
@@ -163,6 +170,7 @@ plot <- eventReactive(input$plot_button, {
 
     incProgress(0.7, detail = "Calculating bias per period...")
     plots <- lapply(seq_along(periods), function(i) {
+
       presence_col <- paste0("presence_", i)
       assessBias1D_modified(
         pop = env_data,

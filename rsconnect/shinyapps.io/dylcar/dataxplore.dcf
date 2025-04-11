@@ -5,6 +5,6 @@ account: dylcar
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 14447789
-bundleId: 10069559
+bundleId: 10094739
 url: https://dylcar.shinyapps.io/dataxplore/
 version: 1
