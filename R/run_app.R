@@ -5,6 +5,7 @@
 #' @inheritParams shiny::shinyApp
 #'
 #' @export
+#' @import golem
 #' @importFrom shiny shinyApp
 #' @importFrom golem with_golem_options
 run_app <- function(
@@ -18,6 +19,11 @@ run_app <- function(
   if (!require("occAssess")){
     install_github("https://github.com/robboyd/occAssess.git")
   }
+
+    add_resource_path(
+    'www', app_sys('app/www')
+  )
+
 
   with_golem_options(
     app = shinyApp(

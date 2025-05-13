@@ -29,10 +29,6 @@ mod_space_bias_tab_ui <- function(id){
           type = "markdown"),
       uiOutput(ns("numUI")),
       uiOutput(ns("dateRangesUI")),
-        numericInput(ns("num"),
-                     "Time periods",
-                     value = 1, min = 1, max = Inf
-        ),
       selectInput(ns("country"), "Country", choices = NULL, selected = FALSE) %>%
           helper(icon = "info-circle", colour = "black", 
                   content = "country",
@@ -149,8 +145,11 @@ sp_df <- eventReactive(input$plot_button, {
             # Convert to sp object
             shape_sp <- as(shape_input, "Spatial")
 
-            # 🔹 Reproject to latitude-longitude
-            shape_sp <- spTransform(shape_sp, CRS("+proj=longlat +datum=WGS84"))
+            # 🔹 Reproject to British National Grid
+            shape_sp <- spTransform(
+                shape_sp,
+                CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+            )
 
             incProgress(1, detail = "Done")
             
@@ -169,8 +168,11 @@ sp_df <- eventReactive(input$plot_button, {
         
         if (nrow(country_shape) == 0) return(NULL)
 
-        # Reproject to latitude-longitude
-        country_shape <- spTransform(country_shape, CRS("+proj=longlat +datum=WGS84"))
+        # Reproject to British National Grid
+        country_shape <- spTransform(
+            country_shape,
+            CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+        )
         
         return(country_shape)
     } else {
@@ -213,18 +215,17 @@ sp_df <- eventReactive(input$plot_button, {
         data <- reformatted_data() %>%
           mutate("spat_uncert" = uploaded_data() %>% pull(input$spat_uncert))
 
-        plot <- assessSpatialBias_modified(dat = data,
+        plot <- assessSpatialBias(dat = data,
                                   periods = periods,
                                   mask = mask,
                                   nSamps = input$nSamps,
                                   degrade = TRUE,
                                   species = "species",
-                                  x = "longitude",
-                                  y = "latitude",
+                                  x = "easting",
+                                  y = "northing",
                                   year = "year", 
                                   spatialUncertainty = "spat_uncert",
-                                  identifier = "identifier",
-                                  crs = "WGS84")$plot
+                                  identifier = "identifier")$plot
 
         incProgress(1, detail = "Finalizing plot...")
         

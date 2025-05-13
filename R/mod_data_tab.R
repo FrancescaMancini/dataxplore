@@ -141,14 +141,14 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
 
     # Bounding box
     bbox <- eventReactive(input$coords_summary_button, {
-      req(uploaded_data(), user_selections()$latitude, user_selections()$longitude)
+      req(uploaded_data(), user_selections()$northing, user_selections()$easting)
       uploaded_data() %>%
-        dplyr::select(user_selections()$latitude, user_selections()$longitude) %>%
+        dplyr::select(user_selections()$northing, user_selections()$easting) %>%
         summarise(
-          `Latitude Min` = min(eval(as.name(user_selections()$latitude))),
-          `Latitude Max` = max(eval(as.name(user_selections()$latitude))),
-          `Longitude Min` = min(eval(as.name(user_selections()$longitude))),
-          `Longitude Max` = max(eval(as.name(user_selections()$longitude)))
+          `Northing Min` = min(eval(as.name(user_selections()$northing))),
+          `Northing Max` = max(eval(as.name(user_selections()$northing))),
+          `Easting Min` = min(eval(as.name(user_selections()$easting))),
+          `Easting Max` = max(eval(as.name(user_selections()$easting)))
         )
     })
 
@@ -158,7 +158,7 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
     })
 
     output$coords_title <- renderText({
-      req(user_selections()$latitude, user_selections()$longitude, input$coords_summary_button)
+      req(user_selections()$northing, user_selections()$easting, input$coords_summary_button)
       "Bounding Box"
     })
   })

@@ -113,8 +113,8 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
         dat = cleaned_data,
         species = "species",
         periods = periods,
-        x = "longitude",
-        y = "latitude",
+        x = "easting",
+        y = "northing",
         year = "year",
         spatialUncertainty = NULL,
         identifier = "identifier"
