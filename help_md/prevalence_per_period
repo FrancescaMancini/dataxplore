@@ -1,3 +1,3 @@
 # Prevalence per period field
 
-The user can specify if the range size of each species is to be calculated over the entire temporal extent of the data (No) or separately for each time period (Yes).
+Here the user can specify if commonness is calculated over the entire temporal extent (“No”) of the data, or separately for each time period (“Yes”). This could have important implications for the interpretation of discovered patterns, given other biases in the dataset.

@@ -26,23 +26,18 @@ mod_environment_bias_tab_ui <- function(id){
         uiOutput(ns("dateRangesUI")),
         numericInput(ns("n_breaks"), "Number of breaks", value = 50) %>%
           helper(icon = "info-circle", colour = "black", 
-                  content = "time_period",
+                  content = "breaks",
                   type = "markdown"),
         selectInput(ns("env_var_column"), "Environmental variables column", choices = NULL, selected = FALSE) %>%
           helper(icon = "info-circle", colour = "black", 
-                  content = "time_period",
+                  content = "environmental_variables",
                   type = "markdown"),
         actionButton(ns("plot_button"), "Plot"),
         checkboxInput(ns("report"), "Add to report", FALSE)
       ),
       mainPanel(
-        h2(span("Environmental bias"),
-           tooltip(
-              bs_icon("info-circle"),
-              "Some text",
-              placement = "bottom"
-            )
-        ),
+        h2("Environmental bias"),
+        p("This function compares the distribution of some environmental variable in the sample (your data) to its distribution in the population (i.e. the whole geographic domain). It is based on the fact that a sample is representative, at least in terms of the focal variable, if the sample and population distributions are similar. Some environmental data is provided (see the tooltip for the “Environmental variables” drop down menu for details), or the user can upload their own data."),
         plotOutput(ns("env_bias_plot"))
       )
     )

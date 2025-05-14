@@ -34,23 +34,18 @@ mod_species_id_bias_tab_ui <- function(id){
         selectInput(
           ns("type"), "Type",
           choices = c("count", "proportion")
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "type",
+                  type = "markdown"),
         actionButton(
           ns("plot_button"), "Plot"
         ),
         checkboxInput(ns("report"), "Add to report", FALSE)
       ),
       mainPanel(
-        h2(
-          span(
-            "Species ID",
-            tooltip(
-              bs_icon("info-circle"),
-              "The plot displays the number of records identified to species level in each time period. Records are considered not identified to species level if they take the value NA",
-              placement = "bottom"
-            )
-          )
-        ),
+        h2("Species ID"),
+        p("The metric displayed in the plot is the number (or proportion) of records identified to species level in each time period and for each level of the identifier. It provides a measure of taxonomic uncertainty and how it changes over time. Records need to take the value of NA in the species column in order to be considered not identified at species level. If your species column contains taxonomic identifications at a coarser level than species you will have to convert them to NA and reupload your data onto the app in order for this function to work."),
         plotOutput(ns("species_id_plot"))
       )
     )

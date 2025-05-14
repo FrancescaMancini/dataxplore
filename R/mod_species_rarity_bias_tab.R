@@ -59,18 +59,10 @@ mod_species_rarity_bias_tab_ui <- function(id){
         checkboxInput("report", "Add to report", FALSE)
       ),
       mainPanel(
-        h2(
-          span(
-            "Rarity bias",
-            tooltip(
-              bs_icon("info-circle"),
-              "The plot displays the rarity bias index in each time period.
-              The index can be used to assess the degree to which rare species are oversampled relative to commoner species and whether this changes over time.
-              If metric is R2, values close to 0 indicate high bias and values close to 1 indicate low bias.
-              If metric is Pearson, values close to -1 indicate high bias and values close to 1 indicate low bias",
-              placement = "bottom"
-            )
-          )),
+        h2("Rarity bias"),
+        p("The metric displayed in the plot is a rarity bias index for each time period and each level of the identifier. This metric can be used to assess the degree to which rare species are oversampled relative to commoner species and whether this changes over time. The premise is that if there was no bias, species would be sampled proportionally to their commonness (common species would be recorded more often than rare species). For each species, the function calculates the number of records and its commonness (measured as the number of grid cells on which the species has been recorded) and assesses their congruence."),
+        p("If Metric = coefficient of variation, values range from 0, indicating high bias, to 1, indicating low bias."),
+        p("If Metric = Pearson’s correlation, values range from −1, indicating high bias, to 1 indicating low bias."),
         plotOutput(ns("rarity_plot"))
       )
     )

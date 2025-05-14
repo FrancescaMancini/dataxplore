@@ -9,7 +9,7 @@
 #' @importFrom shiny NS tagList
 #' @import raster dplyr shinyhelper
 #' 
-mod_space_bias_tab_ui <- function(id){
+mod_space_bias_tab_ui <- function(id) {
   ns <- NS(id)
   tagList(
     sidebarLayout(
@@ -17,56 +17,65 @@ mod_space_bias_tab_ui <- function(id){
         selectInput(
           ns("spat_uncert"), "Spatial Uncertainty column",
           choices = NULL
-        ),
-        radioButtons(
-        ns("periodtype"), "Time periods as",
-        choiceNames = list("Years", "Year ranges"),
-        choiceValues = list("years", "ranges"),
-        selected = "years"
-      ) %>%
-        helper(icon = "info-circle", colour = "black", 
-          content = "time_period",
-          type = "markdown"),
-      uiOutput(ns("numUI")),
-      uiOutput(ns("dateRangesUI")),
-      selectInput(ns("country"), "Country", choices = NULL, selected = FALSE) %>%
-          helper(icon = "info-circle", colour = "black", 
-                  content = "country",
-                  type = "markdown"),
-      fileInput(ns("shapefile"), "(Alternative to Country selection) Provide a shapefile of your survey region and file extensions. Note this supercedes the selection of country.",
-                  accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE) %>%
-          helper(icon = "info-circle", colour = "black", 
-                  content = "shape_file_mask",
-                  type = "markdown"),
-        numericInput(
-          ns("nSamps"), "Number of iterations",
-          value = 50
         ) %>%
-          helper(icon = "info-circle", colour = "black", 
-                  content = "iteration",
-                  type = "markdown"),
-        actionButton(
-          ns("plot_button"), "Plot"
-        ),
-        checkboxInput(ns("report"), "Add to report", FALSE
-        )
-      ),
-      mainPanel(
-        h2(
-          span(
-            "Spatial bias",
-            tooltip(
-              bs_icon("info-circle"),
-              "The plot shows spatial biased based on the Nearest Neighbour Index (NNI).
-              The function simulates n datasets randomly across the study area in equal number to the occurrence data. The NNI can then be given as the ratio of the average observed nearest neighbour distances to the average of the simulated nearest neighbour distances.
-              The index displayed in the plot can be interpreted as how far the observed distribution deviates from a random distribution of the same density.
-              Values between 0 and 1 are more clustered than a random distribution, and values between 1 and 2.15 are more widely dispersed
-              ",
-              placement = "bottom"
-            )
-          )),
-        plotOutput(ns("space_bias_plot"))
+          helper(
+            icon = "info-circle", colour = "black", 
+            content = "spatial_uncertainty",
+            type = "markdown"
+          ),
 
+        radioButtons(
+          ns("periodtype"), "Time periods as",
+          choiceNames = list("Years", "Year ranges"),
+          choiceValues = list("years", "ranges"),
+          selected = "years"
+        ) %>%
+          helper(
+            icon = "info-circle", colour = "black", 
+            content = "time_period",
+            type = "markdown"
+          ),
+
+        uiOutput(ns("numUI")),
+        uiOutput(ns("dateRangesUI")),
+
+        selectInput(
+          ns("country"), "Country", choices = NULL, selected = FALSE
+        ) %>%
+          helper(
+            icon = "info-circle", colour = "black", 
+            content = "country",
+            type = "markdown"
+          ),
+
+        fileInput(ns("shapefile"), "(Alternative to Country selection) Provide a shapefile of your survey region and file extensions. All files have to be uploaded, not just the .shp file. Note this supersedes the selection of Country.",
+          accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"),
+          multiple = TRUE
+        ) %>%
+          helper(
+            icon = "info-circle", colour = "black", 
+            content = "shape_file_mask",
+            type = "markdown"
+          ),
+
+        numericInput(
+          ns("nSamps"), "Number of iterations", value = 50
+        ) %>%
+          helper(
+            icon = "info-circle", colour = "black", 
+            content = "iteration",
+            type = "markdown"
+          ),
+
+        actionButton(ns("plot_button"), "Plot"),
+        checkboxInput(ns("report"), "Add to report", FALSE)
+      ),
+      
+      mainPanel(
+        h2("Spatial bias"),
+        p("The metric displayed in the plot is an index of spatial bias, which quantifies the degree to which a sample deviates from a random distribution within the area of interest. The metric is based on the Nearest Neighbour Index (NNI), given as the ratio of the average observed nearest neighbour distances (the Euclidean distance of each data point to its nearest neighbouring point) to the expected average nearest neighbour distance if the data were randomly distributed. The function simulates a user specified number of datasets (Number of simulations) randomly across the study area in equal number to the occurrence data. The NNI can then be given as the ratio of the average observed nearest neighbour distances in the data to the average of the simulated nearest neighbour distances. By using simulations, the function can provide uncertainty associated with the index (the function will display 90% confidence intervals by default). The index displayed in the plot can be interpreted as how far the observed distribution deviates from a random distribution of the same density. Values between 0 and 1 are more clustered than a random distribution, and values above 1 are more widely dispersed."),
+        p("It is worth pointing out that the index produced here is a function of both sampling biases in the data and the true distributions of the focal taxa. If the function is used to assess data for one or a small number of species, the NNI will likely indicate a strong departure from a random distribution. This is to be expected because the geographical distribution of records will reflect e.g., the environmental niche of the target taxa. The function is therefore most appropriate for use with data spanning many species, in which case a more accurate picture of the distribution of sampling is likely to be obtained."),
+        plotOutput(ns("space_bias_plot"))
       )
     )
   )

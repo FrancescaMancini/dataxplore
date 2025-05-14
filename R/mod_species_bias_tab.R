@@ -28,7 +28,10 @@ mod_species_bias_tab_ui <- function(id){
         selectInput(
           ns("spat_uncert"), "Spatial Uncertainty column",
           choices = NULL
-        ),
+        ) %>%
+          helper(icon = "info-circle", colour = "black",
+                  content = "spatial_uncertainty",
+                  type = "markdown"),
         numericInput(
           ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
           value = 10000
@@ -49,15 +52,9 @@ mod_species_bias_tab_ui <- function(id){
         checkboxInput("report", "Add to report", FALSE)
       ),
       mainPanel(
-        h2(
-          span(
-            "Species number",
-            tooltip(
-              bs_icon("info-circle"),
-              "The plot displays the number of species recorded in each time period.",
-              placement = "bottom"
-            )
-          )),
+        h2("Species number"),
+        p("The metric displayed in the plot is simply the number of records in each time period for each level of the identifier. This provides a measure of sampling intensity and how it changes over time. A change in the number of records over time could reflect a change in recording intensity, which is likely to affect the prevalence of some species in the dataset in a non-random way."),
+        p("If the number of records differs widely between levels of the identifier, we recommend setting Normalise = Yes so that the indices for each level of the identifier fall on a comparable scale, making it easier to assess temporal variation in number of records for the levels with fewer records."),
         plotOutput(ns("species_num_plot"))
       )
     )

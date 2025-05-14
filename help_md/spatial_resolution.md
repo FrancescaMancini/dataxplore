@@ -1,3 +1,3 @@
 # Spatial resolution field
 
-Spatial resolution at which to grid the occurrence data.
+Spatial resolution at which to grid the occurrence data and calculate the metrics. This could match the resolution at which the data will be modelled, or the user could explore how spatio-temporal bias changes at different spatial resolutions. Units must match the units in your data, so if x and y coordinate are easting and northing, Spatial resolution needs to be specified in meters.

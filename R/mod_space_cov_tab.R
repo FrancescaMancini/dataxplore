@@ -35,7 +35,7 @@ mod_space_cov_tab_ui <- function(id){
           helper(icon = "info-circle", colour = "black", 
                   content = "country",
                   type = "markdown"),
-        fileInput(ns("shapefile"), "(Alternative to Country selection) Provide a shapefile of your survey region and file extensions. Note this supercedes the selection of country.",
+        fileInput(ns("shapefile"), "(Alternative to Country selection) Provide a shapefile of your survey region and file extensions. All files have to be uploaded, not just the .shp file. Note this supersedes the selection of Country.",
                   accept = c('.shp','.dbf','.sbn','.sbx','.shx',".prj"), multiple = TRUE) %>%
           helper(icon = "info-circle", colour = "black", 
                   content = "shape_file",
@@ -52,16 +52,11 @@ mod_space_cov_tab_ui <- function(id){
         checkboxInput(ns("report"), "Add to report", FALSE)
       ),
       mainPanel(
-        h2(span("Spatial coverage"),
-           tooltip(
-              bs_icon("info-circle"),
-              "If output is density, the maps show the density of records in each grid cell per time period.
-              If output is number of periods, it returns one map showing the number of time periods in which each grid cell has been sampled.",
-              placement = "bottom"
-            )
-        ),
+        h2("Spatial coverage"),
+        p("This function can be used to assess the extent to which the same portion of the geographic domain has been sampled over time (spatio-temporal bias). This is likely to be crucial for robust estimates of changes in species distribution over time. The function provides this information in one of three ways, which can be selected by the user in the “Output” drop down menu. See the specific tooltip for details on each of the methods."),
         plotOutput(ns("space_cov_plot"))
       )
+
     )
   )
 }
