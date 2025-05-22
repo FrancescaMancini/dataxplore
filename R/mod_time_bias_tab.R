@@ -33,6 +33,10 @@ mod_time_bias_tab_ui <- function(id) {
           type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
+        selectInput(ns("norm"), "Normalize", choices = c("yes", "no"), selected = "yes") %>%
+          helper(icon = "info-circle", colour = "black", 
+                  content = "normalize",
+                  type = "markdown"),
         actionButton(
           ns("plot_button"), "Plot"
         ),
@@ -110,9 +114,8 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
         y = "northing",
         year = "year",
         spatialUncertainty = NULL,
-        identifier = "identifier"
-      )$plot
-
+        identifier = "identifier",
+        normalize = ifelse(input$norm == "Yes", TRUE, FALSE))$plot
       list(plot = plot)
     })
 

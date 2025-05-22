@@ -35,9 +35,9 @@ app_server <- function(input, output, session) {
 
     if (!input$grid_ref) {
       tagList(
-        selectInput("northing", "Northing column", choices = c(), selected = FALSE),
+        selectInput("northing", "Northing column (NOTE: if you)", choices = c(), selected = FALSE),
         selectInput("easting", "Easting column", choices = c(), selected = FALSE),
-        checkboxInput("convert_osgb36", "Are you using decimal degrees?")
+        # checkboxInput("convert_osgb36", "Are you using decimal degrees?")
       )
     } else {
       NULL  # Remove northing/easting inputs when grid reference conversion is selected
@@ -152,26 +152,26 @@ app_server <- function(input, output, session) {
 
     }
 
-    if (!input$grid_ref){
+    # if (!input$grid_ref){
 
-      if(input$convert_osgb36 && all(northing_easting_names != "")){
+    #   if(input$convert_osgb36 && all(northing_easting_names != "")){
 
-      # Convert to an sf object
-      sf_data <- st_as_sf(data, coords = c(northing_easting_names[2], northing_easting_names[1]), crs = 4326)
+    #   # Convert to an sf object
+    #   sf_data <- st_as_sf(data, coords = c(northing_easting_names[2], northing_easting_names[1]), crs = 4326)
 
-      # Transform to British National Grid (EPSG:27700)
-      sf_data_bng <- st_transform(sf_data, crs = 27700)
+    #   # Transform to British National Grid (EPSG:27700)
+    #   sf_data_bng <- st_transform(sf_data, crs = 27700)
 
-      # Extract only the transformed coordinates as a new data frame
-      df_bng <- as.data.frame(st_coordinates(sf_data_bng))
+    #   # Extract only the transformed coordinates as a new data frame
+    #   df_bng <- as.data.frame(st_coordinates(sf_data_bng))
 
-      df_bng = rename(df_bng, northing = Y, easting = X) %>%
-      dplyr::select(northing, easting)
+    #   df_bng = rename(df_bng, northing = Y, easting = X) %>%
+    #   dplyr::select(northing, easting)
 
-      formatted_data = formatted_data %>% dplyr::select(-northing, -easting) %>% cbind(df_bng)
+    #   formatted_data = formatted_data %>% dplyr::select(-northing, -easting) %>% cbind(df_bng)
 
-      }
-    }
+    #   }
+    # }
 
     return(formatted_data)
   })

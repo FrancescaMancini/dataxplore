@@ -40,7 +40,7 @@ assessBias1D_modified <- function(pop, R, x, weights = NULL, breaks, RNames, WNa
     
     stats <- lapply(1:ind, function(z) {
       
-      pop$bin <- cut(pop[, x], breaks = breaks, labels = FALSE)
+      pop$bin <- cut(pop[[x]], breaks = breaks, labels = FALSE) # cut(pop[, x], breaks = breaks, labels = FALSE)
       
       samp <- pop[pop[[R[y]]] == 1, ]
       
