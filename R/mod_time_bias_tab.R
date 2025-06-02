@@ -22,6 +22,7 @@ mod_time_bias_tab_ui <- function(id) {
   tagList(
     sidebarLayout(
       sidebarPanel(
+      div(id = "mod_time_bias_tab",
         radioButtons(
           ns("periodtype"), "Time periods as",
           choiceNames = list("Years", "Year ranges"),
@@ -41,7 +42,7 @@ mod_time_bias_tab_ui <- function(id) {
           ns("plot_button"), "Plot"
         ),
         checkboxInput(ns("report"), "Add to report", FALSE)
-      ),
+      )),
       mainPanel(
         h2("Record number"),
         p("The metric displayed in the plot is simply the number of records in each time period for each level of the identifier. This provides a measure of sampling intensity and how it changes over time. A change in the number of records over time could reflect a change in recording intensity, which is likely to affect the prevalence of some species in the dataset in a non-random way."),
@@ -110,8 +111,8 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
         dat = cleaned_data,
         species = "species",
         periods = periods,
-        x = "easting",
-        y = "northing",
+        x = "x_coordinate",
+        y = "y_coordinate",
         year = "year",
         spatialUncertainty = NULL,
         identifier = "identifier",

@@ -13,6 +13,7 @@ mod_species_id_bias_tab_ui <- function(id){
   tagList(
     sidebarLayout(
       sidebarPanel(
+        div(id = "mod_species_id_bias_tab",
         radioButtons(
           ns("periodtype"), "Time periods as",
           choiceNames = list("Years", "Year ranges"),
@@ -42,7 +43,7 @@ mod_species_id_bias_tab_ui <- function(id){
           ns("plot_button"), "Plot"
         ),
         checkboxInput(ns("report"), "Add to report", FALSE)
-      ),
+      )),
       mainPanel(
         h2("Species ID"),
         p("The metric displayed in the plot is the number (or proportion) of records identified to species level in each time period and for each level of the identifier. It provides a measure of taxonomic uncertainty and how it changes over time. Records need to take the value of NA in the species column in order to be considered not identified at species level. If your species column contains taxonomic identifications at a coarser level than species you will have to convert them to NA and reupload your data onto the app in order for this function to work."),
@@ -56,7 +57,7 @@ mod_species_id_bias_tab_ui <- function(id){
 #'
 #' @noRd
 #' 
-mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, reformatted_data){
+mod_species_id_bias_tab_server <- function(id, uploaded_data, reformatted_data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -88,11 +89,14 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, re
     })
 
     plot_data <- eventReactive(input$plot_button, {
-      req(module_outputs$mod_species_bias_tab()$spat_uncert, input$max_spat_uncert, input$type, reformatted_data()) 
+      req(input$max_spat_uncert, input$type, reformatted_data())
+      
+      if (!("spatial_uncertainty" %in% names(reformatted_data()))){
+        showNotification(paste("This function requires the recording of spatial uncertainty in each entry"), type = "warning")
+        stop("Cancelling plot generation - see warning")
+      }
 
-      cleaned_data <- uploaded_data() %>%
-        dplyr::select(module_outputs$mod_species_bias_tab()$spat_uncert) %>%
-        cbind(reformatted_data()) %>%
+      cleaned_data <- reformatted_data() %>%
         filter(!is.na(year))
       
       num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
@@ -116,10 +120,10 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, module_outputs, re
         dat = cleaned_data,
         species = "species",
         periods = periods,
-        x = "easting",
-        y = "northing",
+        x = "x_coordinate",
+        y = "y_coordinate",
         year = "year",
-        spatialUncertainty = module_outputs$mod_species_bias_tab()$spat_uncert,
+        spatialUncertainty = "spatial_uncertainty",
         identifier = "identifier",
         maxSpatUncertainty = input$max_spat_uncert,
         type = input$type

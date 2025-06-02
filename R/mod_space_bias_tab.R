@@ -14,16 +14,7 @@ mod_space_bias_tab_ui <- function(id) {
   tagList(
     sidebarLayout(
       sidebarPanel(
-        selectInput(
-          ns("spat_uncert"), "Spatial Uncertainty column",
-          choices = NULL
-        ) %>%
-          helper(
-            icon = "info-circle", colour = "black", 
-            content = "spatial_uncertainty",
-            type = "markdown"
-          ),
-
+        div(id = "mod_space_bias_tab",
         radioButtons(
           ns("periodtype"), "Time periods as",
           choiceNames = list("Years", "Year ranges"),
@@ -69,7 +60,7 @@ mod_space_bias_tab_ui <- function(id) {
 
         actionButton(ns("plot_button"), "Plot"),
         checkboxInput(ns("report"), "Add to report", FALSE)
-      ),
+      )),
       
       mainPanel(
         h2("Spatial bias"),
@@ -84,7 +75,7 @@ mod_space_bias_tab_ui <- function(id) {
 #' space_bias_tab Server Functions
 #'
 #' @noRd
-mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reformatted_data, iso_2_country_names, countriesLow){
+mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2_country_names, countriesLow){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -120,13 +111,6 @@ mod_space_bias_tab_server <- function(id, module_outputs, uploaded_data, reforma
       updateSelectInput(session, "country", choices = iso_2_country_names$country)
     })
 
-    observeEvent(uploaded_data(), {
-      updateSelectInput(session, "spat_uncert",
-                        choices = names(uploaded_data()),
-                        selected = character(0)
-      )
-    })
-
 sp_df <- eventReactive(input$plot_button, {
     if (!is.null(input$shapefile)) {
         withProgress(message = "Loading shapefile...", value = 0, {
@@ -154,11 +138,11 @@ sp_df <- eventReactive(input$plot_button, {
             # Convert to sp object
             shape_sp <- as(shape_input, "Spatial")
 
-            # 🔹 Reproject to British National Grid
-            shape_sp <- spTransform(
-                shape_sp,
-                CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-            )
+            # # 🔹 Reproject to British National Grid
+            # shape_sp <- spTransform(
+            #     shape_sp,
+            #     CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+            # )
 
             incProgress(1, detail = "Done")
             
@@ -177,11 +161,11 @@ sp_df <- eventReactive(input$plot_button, {
         
         if (nrow(country_shape) == 0) return(NULL)
 
-        # Reproject to British National Grid
-        country_shape <- spTransform(
-            country_shape,
-            CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-        )
+        # # Reproject to British National Grid
+        # country_shape <- spTransform(
+        #     country_shape,
+        #     CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+        # )
         
         return(country_shape)
     } else {
@@ -191,7 +175,7 @@ sp_df <- eventReactive(input$plot_button, {
 
     plot_data <- eventReactive(input$plot_button, {
       withProgress(message = 'Generating plot...', value = 0, {
-        req(reformatted_data(), input$nSamps, sp_df(), input$spat_uncert)
+        req(reformatted_data(), input$nSamps, sp_df())
 
         incProgress(0.2, detail = "Cleaning data...")
         cleaned_data <- reformatted_data() %>%
@@ -221,17 +205,14 @@ sp_df <- eventReactive(input$plot_button, {
 
         incProgress(0.8, detail = "Calculating spatial bias...")
 
-        data <- reformatted_data() %>%
-          mutate("spat_uncert" = uploaded_data() %>% pull(input$spat_uncert))
-
         plot <- assessSpatialBias(dat = data,
                                   periods = periods,
                                   mask = mask,
                                   nSamps = input$nSamps,
                                   degrade = TRUE,
                                   species = "species",
-                                  x = "easting",
-                                  y = "northing",
+                                  x = "x_coordinate",
+                                  y = "y_coordinate",
                                   year = "year", 
                                   spatialUncertainty = "spat_uncert",
                                   identifier = "identifier")$plot

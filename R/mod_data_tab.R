@@ -16,7 +16,7 @@ mod_data_tab_ui <- function(id) {
     mainPanel(
       fluidRow(
         column(2, actionButton(ns("species_summary_button"), "Species summary")),
-        column(2, actionButton(ns("date_summary_button"), "Dates summary")),
+        column(2, actionButton(ns("year_summary_button"), "Dates summary")),
         column(2, actionButton(ns("year_summary_button"), "Year summary")),
         column(2, actionButton(ns("id_summary_button"), "Identifier summary")),
         column(2, actionButton(ns("coords_summary_button"), "Calculate bounds"))
@@ -25,7 +25,7 @@ mod_data_tab_ui <- function(id) {
       h2(textOutput(ns("species_title"))),
       DTOutput(ns("species_summary_table")),
       h2(textOutput(ns("date_title"))),
-      DTOutput(ns("date_summary_table")),
+      DTOutput(ns("year_summary_table")),
       h2(textOutput(ns("year_title"))),
       DTOutput(ns("year_summary_table")),
       h2(textOutput(ns("id_title"))),
@@ -39,7 +39,7 @@ mod_data_tab_ui <- function(id) {
 #' data_tab Server Functions
 #'
 #' @noRd
-mod_data_tab_server <- function(id, user_selections, uploaded_data) {
+mod_data_tab_server <- function(id, user_selections, uploaded_data, reformatted_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -62,30 +62,20 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data) {
     })
 
     # Date summary
-    date_summary <- eventReactive(input$date_summary_button, {
-      req(uploaded_data(), user_selections()$date, user_selections()$date_format)
+    year_summary <- eventReactive(input$year_summary_button, {
+      req(reformatted_data()$year)
 
-      dates = uploaded_data() %>% pull(user_selections()$date)
-
-        if (user_selections()$date_format == "format_a") {
-          dates <- lubridate::dmy(dates, quiet = TRUE)
-        } else if (user_selections()$date_format == "format_b") {
-          dates <- lubridate::mdy(dates, quiet = TRUE)
-        } else if (user_selections()$date_format == "format_c") {
-          dates <- lubridate::ymd(dates, quiet = TRUE)
-        }
-
-      data.frame(`First Record` = min(dates), `Last Record` = max(dates))
+      data.frame(`First Record Year` = min(reformatted_data()$year), `Last Record Year` = max(reformatted_data()$year))
 
     })
 
-    output$date_summary_table <- DT::renderDT({
-      req(date_summary())
-      date_summary()
+    output$year_summary_table <- DT::renderDT({
+      req(year_summary())
+      year_summary()
     })
 
     output$date_title <- renderText({
-      req(user_selections()$date, input$date_summary_button)
+      req(user_selections()$date, input$year_summary_button)
       "Date Summary"
     })
 

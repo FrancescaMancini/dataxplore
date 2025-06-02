@@ -7,6 +7,7 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
+#' @import ggplot2
 #' @importFrom methods as
 #' @import sp shinyhelper
 #'
@@ -16,6 +17,7 @@ mod_space_cov_tab_ui <- function(id){
   tagList(
     sidebarLayout(
       sidebarPanel(
+        div(id = "mod_space_cov_tab",
         radioButtons(
           ns("periodtype"), "Time periods as",
           choiceNames = list("Years", "Year ranges"),
@@ -27,6 +29,12 @@ mod_space_cov_tab_ui <- function(id){
           type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
+        numericInput(
+          ns("max_spat_uncert"), "Maximum Spatial Uncertainty (Only used for overlap and number of periods plots)",
+          value = 10000) %>%
+          helper(icon = "info-circle", colour = "black",
+                  content = "maximum_spatial_uncertainty",
+                  type = "markdown"),
         numericInput(ns("res"), "Spatial resolution", value = 1000) %>%
           helper(icon = "info-circle", colour = "black", 
                   content = "spatial_resolution",
@@ -44,13 +52,14 @@ mod_space_cov_tab_ui <- function(id){
           helper(icon = "info-circle", colour = "black", 
                   content = "log_count",
                   type = "markdown"),
-        selectInput(ns("output"), "Output", c("density", "Overlap", "Number of periods")) %>%
+        numericInput(ns("min_periods"), "Minimum number of periods (only used for overlap plots)", value = 2, min = 2),
+        selectInput(ns("output"), "Output", c("density", "overlap", "nPeriods")) %>%
           helper(icon = "info-circle", colour = "black", 
                   content = "output",
                   type = "markdown"),
         actionButton(ns("plot_button"), "Plot"),
         checkboxInput(ns("report"), "Add to report", FALSE)
-      ),
+      )),
       mainPanel(
         h2("Spatial coverage"),
         p("This function can be used to assess the extent to which the same portion of the geographic domain has been sampled over time (spatio-temporal bias). This is likely to be crucial for robust estimates of changes in species distribution over time. The function provides this information in one of three ways, which can be selected by the user in the “Output” drop down menu. See the specific tooltip for details on each of the methods."),
@@ -127,11 +136,11 @@ sp_df <- eventReactive(input$plot_button, {
             # Convert to sp object
             shape_sp <- as(shape_input, "Spatial")
 
-            # 🔹 Reproject to British National Grid
-            shape_sp <- spTransform(
-                shape_sp,
-                CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-            )
+            # # 🔹 Reproject to British National Grid
+            # shape_sp <- spTransform(
+            #     shape_sp,
+            #     CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+            # )
 
             incProgress(1, detail = "Done")
             
@@ -150,11 +159,11 @@ sp_df <- eventReactive(input$plot_button, {
         
         if (nrow(country_shape) == 0) return(NULL)
 
-        # Reproject to British National Grid
-        country_shape <- spTransform(
-            country_shape,
-            CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-        )
+        # # Reproject to British National Grid
+        # country_shape <- spTransform(
+        #     country_shape,
+        #     CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
+        # )
         
         return(country_shape)
     } else {
@@ -191,17 +200,17 @@ sp_df <- eventReactive(input$plot_button, {
 
         incProgress(0.6, detail = "Calculating spatial coverage...")
 
-        browser()
+        if (input$output == "density"){
 
-        spat_cov <- assessSpatialCov(
+          spat_cov <- assessSpatialCov(
           dat = cleaned_data,
-          periods = list(2010, 2011, 2012, 2013, 2014, 2015, 2016),
+          periods = periods,
           res = input$res,
           logCount = input$log,
           shp = sp_df(),
           species = "species",
-          x = "easting",
-          y = "northing",
+          x = "x_coordinate",
+          y = "y_coordinate",
           year = "year",
           spatialUncertainty = NULL,
           maxSpatUncertainty = NULL,
@@ -209,8 +218,76 @@ sp_df <- eventReactive(input$plot_button, {
           output = input$output
         )
 
+        # Apply the scale_fill_manual to each plot
+        spat_cov = lapply(spat_cov, function(identifier_p){
+
+          identifier_p = identifier_p + scale_fill_gradient(na.value = "white", low = "white", high = "blue") +
+          coord_equal()
+        })
+
+        } else {
+          
+          if (!("spatial_uncertainty" %in% names(cleaned_data))){
+            showNotification(paste("This function requires the recording of spatial uncertainty in each entry"), type = "warning")
+            stop("Cancelling plot generation - see warning")
+          }
+
+          spat_cov <- assessSpatialCov(
+            dat = cleaned_data,
+            periods = as.list(periods),
+            res = input$res,
+            logCount = input$log,
+            shp = sp_df(),
+            species = "species",
+            x = "x_coordinate",
+            y = "y_coordinate",
+            year = "year",
+            spatialUncertainty = "spatial_uncertainty",
+            maxSpatUncertainty = input$max_spat_uncert,
+            identifier = "identifier",
+            output = "nPeriods",
+            minPeriod = input$min_periods
+          )
+
+          if (input$output == "overlap"){
+
+        # Apply the scale_fill_manual to each plot
+        spat_cov = lapply(spat_cov, function(identifier_p){
+
+          identifier_p = identifier_p +
+          
+          coord_equal()+
+          scale_fill_brewer(type = "qual") +
+          theme(axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank())
+        })
+
+          } else{
+
+        # Apply the scale_fill_manual to each plot
+        spat_cov = lapply(spat_cov, function(identifier_p){
+
+          identifier_p = identifier_p +
+          coord_equal() +
+          theme(axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank())
+        })
+
+          }
+
+        }
+
         incProgress(0.8, detail = "Finalizing plot...")
 
+        # Then arrange them
         plot <- do.call(ggpubr::ggarrange, spat_cov)
 
         incProgress(1, detail = "Plot ready!")
@@ -222,9 +299,5 @@ sp_df <- eventReactive(input$plot_button, {
     output$space_cov_plot <- renderPlot({
       plot_data()$plot
     })
-
-    return(reactive(list(
-      sp_df = sp_df()
-    )))
   })
 }

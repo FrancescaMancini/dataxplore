@@ -13,6 +13,7 @@ mod_environment_bias_tab_ui <- function(id){
   tagList(
     sidebarLayout(
       sidebarPanel(
+        div(id = "mod_environment_bias_tab",
         radioButtons(
           ns("periodtype"), "Time periods as",
           choiceNames = list("Years", "Year ranges"),
@@ -34,7 +35,7 @@ mod_environment_bias_tab_ui <- function(id){
                   type = "markdown"),
         actionButton(ns("plot_button"), "Plot"),
         checkboxInput(ns("report"), "Add to report", FALSE)
-      ),
+      )),
       mainPanel(
         h2("Environmental bias"),
         p("This function compares the distribution of some environmental variable in the sample (your data) to its distribution in the population (i.e. the whole geographic domain). It is based on the fact that a sample is representative, at least in terms of the focal variable, if the sample and population distributions are similar. Some environmental data is provided (see the tooltip for the “Environmental variables” drop down menu for details), or the user can upload their own data."),
@@ -81,29 +82,28 @@ mod_environment_bias_tab_server <- function(id, reformatted_data){
 
   observe({
     # Create a named vector: names = descriptions, values = auxcolumn codes
-    choices <- setNames(aux_file %>% distinct(auxcolumn, description) %>% pull(auxcolumn),
-                        aux_file %>% distinct(auxcolumn, description) %>% pull(description))
+    choices <- setNames(variable_descriptions$auxcolumn, variable_descriptions$description)
 
     updateSelectInput(session, "env_var_column", choices = choices)
   })
 
-convert_easting_northing_to_monad <- function(easting, northing) {
+convert_x_coordinate_y_coordinate_to_monad <- function(x_coordinate, y_coordinate) {
   # OSGB 100k grid letter lookup (A-Z, skipping I)
   grid_letters <- matrix(LETTERS[-9], ncol = 5, byrow = TRUE)[5:1, ]
 
   # First letter: 500 km grid square
-  xo_500 <- trunc(easting / 500000) + 3
-  yo_500 <- trunc(northing / 500000) + 2
+  xo_500 <- trunc(x_coordinate / 500000) + 3
+  yo_500 <- trunc(y_coordinate / 500000) + 2
   s1 <- grid_letters[cbind(yo_500, xo_500)]
 
   # Second letter: 100 km grid square
-  xo_100 <- trunc((easting %% 500000) / 100000) + 1
-  yo_100 <- trunc((northing %% 500000) / 100000) + 1
+  xo_100 <- trunc((x_coordinate %% 500000) / 100000) + 1
+  yo_100 <- trunc((y_coordinate %% 500000) / 100000) + 1
   s2 <- grid_letters[cbind(yo_100, xo_100)]
 
   # Numeric part: 1 km square (monad)
-  monad_e <- trunc((easting %% 100000) / 1000)
-  monad_n <- trunc((northing %% 100000) / 1000)
+  monad_e <- trunc((x_coordinate %% 100000) / 1000)
+  monad_n <- trunc((y_coordinate %% 100000) / 1000)
 
   # Combine into full monad code
   monads <- paste0(s1, s2, sprintf("%02d%02d", monad_e, monad_n))
@@ -129,8 +129,8 @@ plot <- eventReactive(input$plot_button, {
 
     # 2. Convert WGS84 to monads
     positions <- reformatted_data() %>%
-      dplyr::select(easting, northing, year) %>%
-      mutate(monad = convert_easting_northing_to_monad(easting, northing))
+      dplyr::select(x_coordinate, y_coordinate, year) %>%
+      mutate(monad = convert_x_coordinate_y_coordinate_to_monad(x_coordinate, y_coordinate))
 
     incProgress(0.5, detail = "Preparing environmental data...")
 
@@ -160,9 +160,7 @@ plot <- eventReactive(input$plot_button, {
     plots <- lapply(seq_along(periods), function(i) {
 
       presence_col <- paste0("presence_", i)
-
-      browser()
-
+      
       assessBias1D_modified(
         pop = env_data,
         breaks = input$n_breaks,

@@ -14,6 +14,7 @@ mod_species_bias_tab_ui <- function(id){
   tagList(
     sidebarLayout(
       sidebarPanel(
+        div(id = "mod_species_bias_tab",
         radioButtons(
           ns("periodtype"), "Time periods as",
           choiceNames = list("Years", "Year ranges"),
@@ -25,13 +26,6 @@ mod_species_bias_tab_ui <- function(id){
           type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
-        selectInput(
-          ns("spat_uncert"), "Spatial Uncertainty column",
-          choices = NULL
-        ) %>%
-          helper(icon = "info-circle", colour = "black",
-                  content = "spatial_uncertainty",
-                  type = "markdown"),
         numericInput(
           ns("max_spat_uncert"), "Maximum Spatial Uncertainty",
           value = 10000
@@ -50,7 +44,7 @@ mod_species_bias_tab_ui <- function(id){
           ns("plot_button"), "Plot"
         ),
         checkboxInput("report", "Add to report", FALSE)
-      ),
+      )),
       mainPanel(
         h2("Species number"),
         p("The metric displayed in the plot is simply the number of records in each time period for each level of the identifier. This provides a measure of sampling intensity and how it changes over time. A change in the number of records over time could reflect a change in recording intensity, which is likely to affect the prevalence of some species in the dataset in a non-random way."),
@@ -64,14 +58,7 @@ mod_species_bias_tab_ui <- function(id){
 mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
-
-    observeEvent(uploaded_data(), {
-      updateSelectInput(session, "spat_uncert",
-                        choices = names(uploaded_data()),
-                        selected = character(0)
-      )
-    })
-
+    
     output$numUI <- renderUI({
       req(input$periodtype == "ranges")
       numericInput(
@@ -100,11 +87,14 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
     })
 
     plot_data <- eventReactive(input$plot_button, {
-      req(input$spat_uncert, input$max_spat_uncert, input$norm, uploaded_data())
+      req(input$max_spat_uncert, input$norm, reformatted_data())
 
-      cleaned_data <- uploaded_data() %>%
-        dplyr::select(input$spat_uncert) %>%
-        cbind(reformatted_data()) %>%
+      if (!("spatial_uncertainty" %in% names(reformatted_data()))){
+        showNotification(paste("This function requires the recording of spatial uncertainty in each entry"), type = "warning")
+        stop("Cancelling plot generation - see warning")
+      }
+
+      cleaned_data <- reformatted_data() %>%
         filter(!is.na(year))
 
       num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
@@ -128,10 +118,10 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
         dat = cleaned_data,
         species = "species",
         periods = periods,
-        x = "easting",
-        y = "northing",
+        x = "x_coordinate",
+        y = "y_coordinate",
         year = "year",
-        spatialUncertainty = input$spat_uncert,
+        spatialUncertainty = "spatial_uncertainty",
         identifier = "identifier",
         maxSpatUncertainty = input$max_spat_uncert,
         normalize = ifelse(input$norm == "Yes", TRUE, FALSE)
@@ -144,9 +134,6 @@ mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data){
       plot_data()$plot
     })
 
-    return(reactive(list(
-      spat_uncert = input$spat_uncert
-    )))
   })
 }
 

@@ -7,6 +7,7 @@
 
 app_ui <- function(request) {
   tagList(
+    shinyjs::useShinyjs(),
     navbarPage(
       "dataXplore",
       tabPanel(
@@ -21,23 +22,20 @@ app_ui <- function(request) {
           helper(icon = "info-circle", colour = "black", 
             content = "data_upload",
             type = "markdown"),
+
+            div(id = "data_upload_inputs",
             checkboxInput("grid_ref", "Do you want to convert British grid references to easting and northing", FALSE),
             tags$div(id = "placeholder"),
             selectInput("species", "Species column", choices = NULL),
-            selectInput("date", "Date column", choices = NULL),
+            checkboxInput("has_year_column", "Do you have a column containing year values (as separate integers e.g., 2014, 2015...)?", FALSE),
+            uiOutput("date_year_ui"),
+            uiOutput("y_coordinate_x_coordinate"),
+            
+            checkboxInput("has_spatial_uncertainty", "Do you have a column recording spatial uncertainty?", FALSE),
+            uiOutput("spatial_uncertainty"),
 
-            radioButtons("date_format", "Select date format (please ignore separator)",
-              choices = c(
-                "day/month/year" = "format_a",
-                "month/day/year" = "format_b",
-                "year/month/day" = "format_c"
-              ),
-              selected = "format_a"
+            selectInput("id", "Choose the identifier", choices = NULL)
             ),
-
-            uiOutput("northing_easting_ui"),
-
-            selectInput("id", "Choose the identifier", choices = NULL),
 
             checkboxInput("report", "Add to report", FALSE)
           ),

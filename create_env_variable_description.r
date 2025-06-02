@@ -4,6 +4,8 @@ library(stringr)
 
 aux_file = read.csv("../example_data/all_aux.csv")
 
+aux_file = read.csv("../example_data/all_aux.csv")
+
 # 1. Create BIO lookup table
 bio_table <- tribble(
   ~BIO, ~description,
@@ -28,6 +30,9 @@ bio_table <- tribble(
   "BIO19", "Precipitation of Coldest Quarter", 
   "pa2020", "The proportion of the grid cell that is in a protected area",
   "UKelv", "Average elevation of the grid cell"
+  "BIO19", "Precipitation of Coldest Quarter", 
+  "pa2020", "The proportion of the grid cell that is in a protected area",
+  "UKelv", "Average elevation of the grid cell"
 )
 
 # 2. Convert aux_file to long format
@@ -40,11 +45,16 @@ aux_long <- aux_long %>%
     BIO = str_extract(auxcolumn, "bio_\\d+"),
     BIO = toupper(str_replace(BIO, "bio_", "BIO")),
     BIO = ifelse(is.na(BIO), auxcolumn, BIO)
+    BIO = toupper(str_replace(BIO, "bio_", "BIO")),
+    BIO = ifelse(is.na(BIO), auxcolumn, BIO)
   )
 
 # 4. Merge with bio_table
 aux_long = aux_long %>%
   left_join(bio_table, by = "BIO") %>%
+  filter(!(auxcolumn %in% c("Ndep", "calc_bed", "x", "y"))) %>% # necessary to remove undefined variables
+  mutate(description = ifelse(is.na(description), paste0("landcover for class: ", auxcolumn), description)) %>%
+  dplyr::select(monad, auxcolumn, value, description)
   filter(!(auxcolumn %in% c("Ndep", "calc_bed", "x", "y"))) %>% # necessary to remove undefined variables
   mutate(description = ifelse(is.na(description), paste0("landcover for class: ", auxcolumn), description)) %>%
   dplyr::select(monad, auxcolumn, value, description)
@@ -54,10 +64,21 @@ aux_file = aux_long
 library(usethis)
 library(devtools)
 
+# Split descriptions and aux_data
+variable_descriptions = aux_file %>%
+select(auxcolumn, description) %>%
+distinct()
+
+aux_file = aux_file %>% select(-description)
+
 use_data(aux_file, overwrite = TRUE)
+use_data(variable_descriptions, overwrite = TRUE)
 
 document()
 
 load_all()
+
+run_app()
+
 
 run_app()

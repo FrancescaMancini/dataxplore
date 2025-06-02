@@ -30,17 +30,72 @@ app_server <- function(input, output, session) {
     uploaded_data(data)
   })
 
-  # Generate UI elements for northing and easting inputs dynamically using selectInput
-  output$northing_easting_ui <- renderUI({
+  data_ready <- reactiveVal(FALSE)
+
+  observeEvent(input$upload, {
+  data_ready(FALSE)
+  shinyjs::reset("data_upload_inputs")
+  shinyjs::reset("mod_environment_bias_tab")
+  shinyjs::reset("mod_time_bias_tab")
+  shinyjs::reset("mod_species_rarity_bias_tab")
+  shinyjs::reset("mod_species_id_bias_tab")
+  shinyjs::reset("mod_species_bias_tab")
+  shinyjs::reset("mod_space_cov_tab")
+  shinyjs::reset("mod_space_bias_tab")
+
+  data_ready(TRUE)
+  })
+
+  # Generate UI elements for y coordinate and x_coordinate inputs dynamically using selectInput
+  output$y_coordinate_x_coordinate <- renderUI({
 
     if (!input$grid_ref) {
       tagList(
-        selectInput("northing", "Northing column (NOTE: if you)", choices = c(), selected = FALSE),
-        selectInput("easting", "Easting column", choices = c(), selected = FALSE),
+        selectInput("y_coordinate", "y coordinate column (NOTE: This can be any CRS. It must however match any spatial parameters you specify later, such as spatial resolution and uncertainty. Additionally, )", choices = c(), selected = FALSE),
+        selectInput("x_coordinate", "x coordinate column", choices = c(), selected = FALSE),
         # checkboxInput("convert_osgb36", "Are you using decimal degrees?")
       )
     } else {
-      NULL  # Remove northing/easting inputs when grid reference conversion is selected
+      NULL  # Remove y_coordinate/x_coordinate inputs when grid reference conversion is selected
+    }
+  })
+
+  # Generate UI elements for y coordinate and x_coordinate inputs dynamically using selectInput
+  output$spatial_uncertainty <- renderUI({
+
+    if (input$has_spatial_uncertainty) {
+      tagList(
+    selectInput(
+      "spat_uncert", "Spatial Uncertainty column",
+      choices = NULL) %>%
+    helper(
+        icon = "info-circle", colour = "black", 
+        content = "spatial_uncertainty",
+        type = "markdown"
+    )
+      )
+    } else {
+      NULL  # Remove y_coordinate/x_coordinate inputs when grid reference conversion is selected
+    }
+  })
+
+  output$date_year_ui <- renderUI({
+
+    if (!input$has_year_column) {
+      tagList(
+            selectInput("date", "Date column", choices = NULL),
+
+            radioButtons("date_format", "Select date format (please ignore separator)",
+              choices = c(
+                "day/month/year" = "format_a",
+                "month/day/year" = "format_b",
+                "year/month/day" = "format_c"
+              ),
+              selected = "format_a"
+            )
+      )
+    } else {
+      selectInput("year", "Year column", choices = NULL)
     }
   })
 
@@ -51,20 +106,65 @@ app_server <- function(input, output, session) {
     col_choices <- colnames(uploaded_data())
 
     updateSelectInput(session, "species", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "date", choices = col_choices, selected = FALSE)
     updateSelectInput(session, "id", choices = col_choices, selected = FALSE)
     updateSelectInput(session, "grid_ref_column", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "northing", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "easting", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "y_coordinate", choices = col_choices, selected = FALSE)
+    updateSelectInput(session, "x_coordinate", choices = col_choices, selected = FALSE)
+  })
+  
+  observeEvent(input$has_spatial_uncertainty, {
+
+    req(uploaded_data())
+
+    col_choices <- colnames(uploaded_data())
+
+    updateSelectInput(session, "spat_uncert", choices = col_choices, selected = FALSE)
+
   })
 
   observeEvent(input$grid_ref, {
 
     req(uploaded_data())
 
-    updateSelectInput(session, "northing", choices = colnames(uploaded_data()), selected = FALSE)
-    updateSelectInput(session, "easting", choices = colnames(uploaded_data()), selected = FALSE)
+    if(input$grid_ref){
 
+    updateSelectInput(session, "y_coordinate", choices = colnames(uploaded_data()), selected = FALSE)
+    updateSelectInput(session, "x_coordinate", choices = colnames(uploaded_data()), selected = FALSE)
+
+    } else{
+
+      NULL
+    }
+
+  })
+  
+  observeEvent(input$has_year_column, {
+
+    req(uploaded_data())
+
+    if(input$has_year_column){
+
+      updateSelectInput(session, "year", choices = colnames(uploaded_data()), selected = FALSE)
+
+    } else{
+
+      updateSelectInput(session, "date", choices = colnames(uploaded_data()), selected = FALSE)
+    }
+
+  })
+
+  # Dynamically update variable selections based on the uploaded data
+  observe({
+    req(uploaded_data())  # Ensure uploaded_data is not NULL before updating selections
+
+    if(input$has_year_column){
+
+      updateSelectInput(session, "year", choices = colnames(uploaded_data()), selected = FALSE)
+
+    } else{
+
+      updateSelectInput(session, "date", choices = colnames(uploaded_data()), selected = FALSE)
+    }
   })
 
   # Grid References UI Dynamic Insertion/Removal
@@ -83,7 +183,7 @@ app_server <- function(input, output, session) {
     }
   })
 
-  # New reactive value to store northing/easting conversion results with default value
+  # New reactive value to store northing and easting conversion results with default value
   conversion_result <- reactiveVal()
 
   observeEvent(input$grid_ref_convert, {
@@ -91,47 +191,66 @@ app_server <- function(input, output, session) {
 
     sites <- pull(uploaded_data(), eval(as.symbol(input$grid_ref_column)))
 
-    # Assuming 'osg_parse' is a function that converts grid references to northing/easting
+    # convert to northing x_coordinate
     result <- osg_parse(grid_refs = sites, coord_system = "BNG")
 
-    conversion_result(data.frame("northing" = result$northing, "easting" = result$easting))
+    conversion_result(data.frame("y_coordinate" = result$y_coordinate, "x_coordinate" = result$easting))
   })
 
   reformatted_data <- reactive({
-    req(uploaded_data()) # Ensure there's uploaded data
+    req(uploaded_data(), data_ready()) # Ensure there's uploaded data
 
     data <- uploaded_data()
 
-    if (!is.null(conversion_result()) && "northing" %in% names(conversion_result()) && "easting" %in% names(conversion_result())) {
-      data$northing <- conversion_result()$northing
-      data$easting <- conversion_result()$easting
-      northing_easting_names <- as.character(c("northing", "easting"))
+    if (!is.null(conversion_result()) && "y_coordinate" %in% names(conversion_result()) && "x_coordinate" %in% names(conversion_result())) {
+      data$y_coordinate <- conversion_result()$y_coordinate
+      data$x_coordinate <- conversion_result()$x_coordinate
+      y_coordinate_x_coordinate_names <- as.character(c("y_coordinate", "x_coordinate"))
     } else {
-      northing_easting_names <- as.character(c(input$northing, input$easting))
+      y_coordinate_x_coordinate_names <- as.character(c(input$y_coordinate, input$x_coordinate))
     }
 
-    cols_to_select <- c(input$species, input$date, input$id)
-    cols_to_select <- na.omit(cols_to_select)
+    cols_to_select <- c(input$species, input$year, input$id)
 
-    if (length(cols_to_select) > 0) {
+    cols_to_select <- cols_to_select[!is.null(cols_to_select)]
+    cols_to_select <- cols_to_select[cols_to_select != ""]
+
+    if (length(cols_to_select) > 0 && all(cols_to_select %in% colnames(data))) {
       formatted_data <- dplyr::select(data, !!!syms(cols_to_select))
 
       if (nchar(input$species)) {
         formatted_data <- rename(formatted_data, species = !!sym(input$species))
       }
 
-      if (nchar(input$date) > 0) {
-        formatted_data <- rename(formatted_data, date = !!sym(input$date))
+      if (input$has_year_column){
 
-        if (input$date_format == "format_a") {
-          formatted_data$date <- lubridate::dmy(formatted_data$date, quiet = TRUE)
-        } else if (input$date_format == "format_b") {
-          formatted_data$date <- lubridate::mdy(formatted_data$date, quiet = TRUE)
-        } else if (input$date_format == "format_c") {
-          formatted_data$date <- lubridate::ymd(formatted_data$date, quiet = TRUE)
+        if (!is.null(input$year)){
+
+          if(nchar(input$year) > 0){
+
+          formatted_data <- rename(formatted_data, year = !!sym(input$year))
         }
-        formatted_data$year <- year(formatted_data$date)
+
+        }
+
+      } else{
+
+        if (nchar(input$date) > 0){
+
+          dates = data %>% pull(!!sym(input$date))
+
+          if (input$date_format == "format_a") {
+          dates <- lubridate::dmy(dates, quiet = TRUE)
+          } else if (input$date_format == "format_b") {
+          dates <- lubridate::mdy(dates, quiet = TRUE)
+          } else if (input$date_format == "format_c") {
+          dates <- lubridate::ymd(dates, quiet = TRUE)
+          }
+          formatted_data$year <- year(dates)
+        }
+
       }
+
       if (nchar(input$id) > 0) {
         formatted_data <- rename(formatted_data, identifier = !!sym(input$id))
       }
@@ -139,39 +258,28 @@ app_server <- function(input, output, session) {
       formatted_data <- data.frame()
     }
 
-    if (length(northing_easting_names) == 2) {
+    if (length(y_coordinate_x_coordinate_names) == 2) {
 
       if (nrow(formatted_data) == 0) {
-        formatted_data <- dplyr::select(data, !!!syms(northing_easting_names))
+        formatted_data <- dplyr::select(data, !!!syms(y_coordinate_x_coordinate_names))
       } else {
-        formatted_data <- cbind(formatted_data, dplyr::select(data, !!!syms(northing_easting_names)))
+        formatted_data <- cbind(formatted_data, dplyr::select(data, !!!syms(y_coordinate_x_coordinate_names)))
       }
 
-      formatted_data <- rename(formatted_data, northing = !!sym(northing_easting_names[1]))
-      formatted_data <- rename(formatted_data, easting = !!sym(northing_easting_names[2]))
+      formatted_data <- rename(formatted_data, y_coordinate = !!sym(y_coordinate_x_coordinate_names[1]))
+      formatted_data <- rename(formatted_data, x_coordinate = !!sym(y_coordinate_x_coordinate_names[2]))
 
     }
+    
+    if(input$has_spatial_uncertainty && !is.null(input$spat_uncert) && input$spat_uncert != ""){
 
-    # if (!input$grid_ref){
 
-    #   if(input$convert_osgb36 && all(northing_easting_names != "")){
-
-    #   # Convert to an sf object
-    #   sf_data <- st_as_sf(data, coords = c(northing_easting_names[2], northing_easting_names[1]), crs = 4326)
-
-    #   # Transform to British National Grid (EPSG:27700)
-    #   sf_data_bng <- st_transform(sf_data, crs = 27700)
-
-    #   # Extract only the transformed coordinates as a new data frame
-    #   df_bng <- as.data.frame(st_coordinates(sf_data_bng))
-
-    #   df_bng = rename(df_bng, northing = Y, easting = X) %>%
-    #   dplyr::select(northing, easting)
-
-    #   formatted_data = formatted_data %>% dplyr::select(-northing, -easting) %>% cbind(df_bng)
-
-    #   }
-    # }
+        if (nrow(formatted_data) == 0) {
+          formatted_data <- dplyr::select(data, input$spat_uncert)
+        } else {
+          formatted_data = formatted_data %>% mutate(spatial_uncertainty = data %>% pull(input$spat_uncert))
+        }
+    }
 
     return(formatted_data)
   })
@@ -191,8 +299,8 @@ app_server <- function(input, output, session) {
     date_format = NULL,
     year = NULL,
     id = NULL,
-    northing = NULL,
-    easting = NULL,
+    y_coordinate = NULL,
+    x_coordinate = NULL,
     grid_ref = NULL,
     grid_ref_convert = NULL,
     grid_ref_column = NULL
@@ -220,11 +328,11 @@ app_server <- function(input, output, session) {
   })
 
   observe({
-    input_tracker$northing <- input$northing
+    input_tracker$y_coordinate <- input$y_coordinate
   })
 
   observe({
-    input_tracker$easting <- input$easting
+    input_tracker$x_coordinate <- input$x_coordinate
   })
 
   observe({
@@ -247,8 +355,8 @@ app_server <- function(input, output, session) {
       date_format = input_tracker$date_format,
       year = input_tracker$year,
       id = input_tracker$id,
-      northing = input_tracker$northing,
-      easting = input_tracker$easting,
+      y_coordinate = input_tracker$y_coordinate,
+      x_coordinate = input_tracker$x_coordinate,
       grid_ref = input_tracker$grid_ref,
       grid_ref_convert = input_tracker$grid_ref_convert,
       grid_ref_column = input_tracker$grid_ref_column
@@ -257,18 +365,16 @@ app_server <- function(input, output, session) {
 
   # Load modules
   mod_info_tab_server("info_tab_1")
-  mod_data_tab_server(id = "data_tab_1", user_selections = user_selections, uploaded_data = uploaded_data)
+  mod_data_tab_server(id = "data_tab_1", user_selections = user_selections, uploaded_data = uploaded_data, reformatted_data = reformatted_data)
   mod_time_bias_tab_server("time_bias_tab_1", reformatted_data = reformatted_data)
 
-  module_outputs = list()
+  mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data)
+  mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data)
+  mod_species_rarity_bias_tab_server("species_rarity_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data)
 
-  # Note we save module_outputs to extract spatial uncertainty
-  module_outputs$mod_species_bias_tab <- mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data)
-  mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data, module_outputs = module_outputs, reformatted_data = reformatted_data)
-  mod_species_rarity_bias_tab_server("species_rarity_bias_tab_1", uploaded_data = uploaded_data, module_outputs = module_outputs, reformatted_data = reformatted_data)
-
-  module_outputs$mod_space_cov_tab <- mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow)
-  mod_space_bias_tab_server("space_bias_tab_1", module_outputs = module_outputs, uploaded_data = uploaded_data, reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow)
+  mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow)
+  mod_space_bias_tab_server("space_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow)
   mod_environment_bias_tab_server("environment_bias_tab_1", reformatted_data = reformatted_data)
-  # mod_export_tab_server("export_tab_1")
+  mod_export_tab_server("export_tab_1")
+  
 }

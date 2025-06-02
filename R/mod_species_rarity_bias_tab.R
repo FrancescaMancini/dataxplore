@@ -13,6 +13,7 @@ mod_species_rarity_bias_tab_ui <- function(id){
   tagList(
     sidebarLayout(
       sidebarPanel(
+        div(id = "mod_species_rarity_bias_tab",
         radioButtons(
           ns("periodtype"), "Time periods as",
           choiceNames = list("Years", "Year ranges"),
@@ -57,7 +58,7 @@ mod_species_rarity_bias_tab_ui <- function(id){
           ns("plot_button"), "Plot"
         ),
         checkboxInput("report", "Add to report", FALSE)
-      ),
+      )),
       mainPanel(
         h2("Rarity bias"),
         p("The metric displayed in the plot is a rarity bias index for each time period and each level of the identifier. This metric can be used to assess the degree to which rare species are oversampled relative to commoner species and whether this changes over time. The premise is that if there was no bias, species would be sampled proportionally to their commonness (common species would be recorded more often than rare species). For each species, the function calculates the number of records and its commonness (measured as the number of grid cells on which the species has been recorded) and assesses their congruence."),
@@ -72,7 +73,7 @@ mod_species_rarity_bias_tab_ui <- function(id){
 #' rarity_bias_tab Server Functions
 #'
 #' @noRd
-mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs, reformatted_data){
+mod_species_rarity_bias_tab_server <- function(id, uploaded_data, reformatted_data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -104,16 +105,20 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
     })
 
     plot_data <- eventReactive(input$plot_button, {
+
+      req(input$max_spat_uncert, input$res,
+        input$prev, input$metric, reformatted_data())
+
+      if (!("spatial_uncertainty" %in% names(reformatted_data()))){
+        showNotification(paste("This function requires the recording of spatial uncertainty in each entry"), type = "warning")
+        stop("Cancelling plot generation - see warning")
+      }
+
       withProgress(message = 'Generating plot...', value = 0, {
-        req(module_outputs$mod_species_bias_tab()$spat_uncert,
-            input$max_spat_uncert, input$res,
-            input$prev, input$metric, reformatted_data())
 
         incProgress(0.2, detail = "Processing data...")
 
-        cleaned_data <- uploaded_data() %>%
-          dplyr::select(module_outputs$mod_species_bias_tab()$spat_uncert) %>%
-          cbind(reformatted_data()) %>%
+        cleaned_data <- reformatted_data() %>%
           filter(!is.na(year))
 
         num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
@@ -141,10 +146,10 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, module_outputs
           dat = cleaned_data,
           species = "species",
           periods = periods,
-          x = "easting",
-          y = "northing",
+          x = "x_coordinate",
+          y = "y_coordinate",
           year = "year",
-          spatialUncertainty = module_outputs$mod_species_bias_tab()$spat_uncert,
+          spatialUncertainty = "spatial_uncertainty",
           identifier = "identifier",
           maxSpatUncertainty = input$max_spat_uncert,
           res = input$res,
