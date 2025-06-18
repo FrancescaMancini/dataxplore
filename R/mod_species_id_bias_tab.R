@@ -42,7 +42,7 @@ mod_species_id_bias_tab_ui <- function(id){
         actionButton(
           ns("plot_button"), "Plot"
         ),
-        checkboxInput(ns("report"), "Add to report", FALSE)
+        actionButton(ns("export_report"), "Export Report")
       )),
       mainPanel(
         h2("Species ID"),
@@ -57,7 +57,7 @@ mod_species_id_bias_tab_ui <- function(id){
 #'
 #' @noRd
 #' 
-mod_species_id_bias_tab_server <- function(id, uploaded_data, reformatted_data){
+mod_species_id_bias_tab_server <- function(id, uploaded_data, reformatted_data, tmp_dir){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -135,5 +135,54 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, reformatted_data){
     output$species_id_plot <- renderPlot({
       plot_data()$plot
     })
+
+  observeEvent(input$export_report, {
+  req(input$max_spat_uncert, input$type, reformatted_data())
+
+  if (!("spatial_uncertainty" %in% names(reformatted_data()))) {
+    showNotification("Spatial uncertainty data is required for export.", type = "error")
+    return(NULL)
+  }
+
+  if (input$periodtype == "ranges") {
+    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+    periods <- lapply(year_ranges, function(range) {
+      seq(range[1], range[2])
+    })
+  } else {
+    periods <- sort(unique(reformatted_data()$year))
+  }
+
+  # Use temp directory for export
+  tmp_export_dir <- file.path(tmp_dir, "export")
+  dir.create(tmp_export_dir, showWarnings = FALSE)
+
+  # Save data to known filename
+  write.csv(reformatted_data(), file = file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
+
+  # Render report
+  rmarkdown::render(
+    input = "markdown_files/mod_species_id_bias_tab_report.Rmd",
+    output_file = "species_id_bias_report.html",
+    output_dir = tmp_export_dir,
+    params = list(
+      species = "species",
+      periods = periods,
+      x = "x_coordinate",
+      y = "y_coordinate",
+      year = "year",
+      spatialUncertainty = "spatial_uncertainty",
+      identifier = "identifier",
+      maxSpatUncertainty = input$max_spat_uncert,
+      type = input$type
+    ),
+    knit_root_dir = tmp_dir,
+    envir = new.env(parent = globalenv())
+  )
+
+  showNotification("Report generated. Navigate to the export tab to download the HTML.", type = "message")
+})
+
   })
 }

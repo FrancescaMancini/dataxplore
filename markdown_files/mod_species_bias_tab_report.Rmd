@@ -1,0 +1,57 @@
+---
+title: "Species Bias Report"
+output: html_document
+params:
+  species: "species"
+  periods: NULL
+  x: "x_coordinate"
+  y: "y_coordinate"
+  year: "year"
+  spatialUncertainty: "spatial_uncertainty"
+  identifier: "identifier"
+  maxSpatUncertainty: 10000
+  normalize: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(occAssess)
+library(dplyr)
+library(ggplot2)
+```
+
+## Input Parameters
+
+- **Species**: `r params$species`
+- **Periods**: `r paste(sapply(params$periods, function(p) paste(range(p), collapse = "-")), collapse = ", ")`
+- **X Coordinate**: `r params$x`
+- **Y Coordinate**: `r params$y`
+- **Year**: `r params$year`
+- **Spatial Uncertainty**: `r params$spatialUncertainty`
+- **Identifier**: `r params$identifier`
+- **Max Spatial Uncertainty**: `r params$maxSpatUncertainty`
+- **Normalize**: `r params$normalize`
+
+*Note: You can access the reformatted data by loading the `your_formatted_data.csv` file.*
+
+```{r load-data}
+data <- read.csv("export/your_formatted_data.csv")
+```
+
+```{r assess-species-number}
+result <- assessSpeciesNumber(
+  dat = data,
+  species = params$species,
+  periods = params$periods,
+  x = params$x,
+  y = params$y,
+  year = params$year,
+  spatialUncertainty = params$spatialUncertainty,
+  identifier = params$identifier,
+  maxSpatUncertainty = params$maxSpatUncertainty,
+  normalize = params$normalize
+)
+```
+
+```{r plot-results}
+print(result$plot)

@@ -1,0 +1,80 @@
+---
+title: "Environmental Bias Report"
+output: html_document
+params:
+  n_breaks: 50
+  periods: NULL
+  env_var_column: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+source("R/assessBias1D_modified.R")
+```
+
+## Input Parameters
+
+- **Number of Breaks**: `r params$n_breaks`
+- **Periods**: `r paste(sapply(params$periods, function(p) paste(range(p), collapse = "-")), collapse = ", ")`
+- **Environmental Variable**: `r params$env_var_column`
+
+```{r load-data}
+data <- read.csv("export/your_formatted_data.csv")
+aux_file <- read.csv("export/aux_file.csv")
+```
+
+```{r map-to-monads}
+convert_x_coordinate_y_coordinate_to_monad <- function(x_coordinate, y_coordinate) {
+  grid_letters <- matrix(LETTERS[-9], ncol = 5, byrow = TRUE)[5:1, ]
+  xo_500 <- trunc(x_coordinate / 500000) + 3
+  yo_500 <- trunc(y_coordinate / 500000) + 2
+  s1 <- grid_letters[cbind(yo_500, xo_500)]
+  xo_100 <- trunc((x_coordinate %% 500000) / 100000) + 1
+  yo_100 <- trunc((y_coordinate %% 500000) / 100000) + 1
+  s2 <- grid_letters[cbind(yo_100, xo_100)]
+  monad_e <- trunc((x_coordinate %% 100000) / 1000)
+  monad_n <- trunc((y_coordinate %% 100000) / 1000)
+  monads <- paste0(s1, s2, sprintf("%02d%02d", monad_e, monad_n))
+  return(monads)
+}
+
+data <- data %>%
+  mutate(monad = convert_x_coordinate_y_coordinate_to_monad(x_coordinate, y_coordinate))
+```
+
+```{r prepare-env-data}
+positions <- data %>%
+  select(monad, year)
+
+env_data <- aux_file %>%
+  filter(auxcolumn == params$env_var_column) %>%
+  select(monad, value) %>%
+  rename(!!params$env_var_column := value)
+
+for (i in seq_along(params$periods)) {
+  years <- params$periods[[i]]
+  monads_in_period <- positions %>%
+    filter(year %in% years) %>%
+    distinct(monad) %>%
+    pull(monad)
+
+  colname <- paste0("presence_", i)
+  env_data[[colname]] <- ifelse(env_data$monad %in% monads_in_period, 1, 0)
+}
+```
+
+```{r plot-env-bias}
+plots <- lapply(seq_along(params$periods), function(i) {
+  assessBias1D_modified(
+    pop = env_data,
+    breaks = params$n_breaks,
+    R = paste0("presence_", i),
+    x = params$env_var_column,
+    RNames = paste0("Period ", i)
+  )$plot
+})
+
+wrap_plots(plots, ncol = 1)

@@ -363,18 +363,23 @@ app_server <- function(input, output, session) {
     )
   })
 
+  # Create a server for the export
+  tmp_dir <- file.path(getwd(), "export_dir") # tempdir()
+  dir.create(file.path(tmp_dir, "export"), recursive = TRUE)
+
   # Load modules
   mod_info_tab_server("info_tab_1")
   mod_data_tab_server(id = "data_tab_1", user_selections = user_selections, uploaded_data = uploaded_data, reformatted_data = reformatted_data)
-  mod_time_bias_tab_server("time_bias_tab_1", reformatted_data = reformatted_data)
+  mod_time_bias_tab_server("time_bias_tab_1", reformatted_data = reformatted_data, tmp_dir = tmp_dir)
 
-  mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data)
-  mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data)
-  mod_species_rarity_bias_tab_server("species_rarity_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data)
+  mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data, tmp_dir = tmp_dir)
+  mod_species_id_bias_tab_server("species_id_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data, tmp_dir = tmp_dir)
+  mod_species_rarity_bias_tab_server("species_rarity_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data, tmp_dir = tmp_dir)
 
-  mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow)
-  mod_space_bias_tab_server("space_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow)
-  mod_environment_bias_tab_server("environment_bias_tab_1", reformatted_data = reformatted_data)
-  mod_export_tab_server("export_tab_1")
+  mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow, tmp_dir = tmp_dir)
+  # mod_space_bias_tab_server("space_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow, tmp_dir = tmp_dir)
+  
+  # mod_environment_bias_tab_server("environment_bias_tab_1", reformatted_data = reformatted_data)
+  # mod_export_tab_server("export_tab_1", reformatted_data = reformatted_data)
   
 }

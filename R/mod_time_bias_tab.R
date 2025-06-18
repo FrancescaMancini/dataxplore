@@ -41,7 +41,7 @@ mod_time_bias_tab_ui <- function(id) {
         actionButton(
           ns("plot_button"), "Plot"
         ),
-        checkboxInput(ns("report"), "Add to report", FALSE)
+        actionButton(ns("export_report"), "Export Report")
       )),
       mainPanel(
         h2("Record number"),
@@ -53,7 +53,7 @@ mod_time_bias_tab_ui <- function(id) {
   )
 }
 
-mod_time_bias_tab_server <- function(id, reformatted_data) {
+mod_time_bias_tab_server <- function(id, reformatted_data, tmp_dir) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -123,5 +123,43 @@ mod_time_bias_tab_server <- function(id, reformatted_data) {
     output$number_records <- renderPlot({
       plot_data()$plot
     })
+
+observeEvent(input$export_report, {
+  req(reformatted_data())
+
+  if (input$periodtype == "ranges") {
+    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+    periods <- lapply(year_ranges, function(range) {
+      seq(range[1], range[2])
+    })
+  } else {
+    periods <- sort(unique(reformatted_data()$year))
+  }
+
+  # Save data to the known file name used in Rmd
+  save_ifnot_exists(reformatted_data(), file.path(tmp_dir, "export", "your_formatted_data.csv"))
+
+  # Render the R Markdown report
+  rmarkdown::render(
+    input = "markdown_files/mod_time_bias_tab_report.Rmd",
+    output_file = "time_bias_report.html",
+    output_dir = file.path(tmp_dir, "export"),
+    params = list(
+      species = "species",
+      periods = periods,
+      x = "x_coordinate",
+      y = "y_coordinate",
+      year = "year",
+      spatialUncertainty = NULL,
+      identifier = "identifier",
+      normalize = ifelse(input$norm == "yes", TRUE, FALSE)
+    ),
+    knit_root_dir = tmp_dir
+  )
+
+  showNotification("Report generated. Navigate to the export tab to download the HTML.", type = "message")
+  })
+
   })
 }

@@ -1,0 +1,110 @@
+---
+title: "Spatial Coverage Report"
+output: html_document
+params:
+  species: "species"
+  periods: NULL
+  x: "x_coordinate"
+  y: "y_coordinate"
+  year: "year"
+  spatialUncertainty: NULL
+  maxSpatUncertainty: 10000
+  res: 1000
+  logCount: FALSE
+  identifier: "identifier"
+  output: "density"
+  minPeriod: 2
+  shapefile_uploaded: FALSE
+  country: NULL
+  country_iso2: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(occAssess)
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(ggpubr)
+```
+
+## Input Parameters
+
+- **Species**: `r params$species`
+- **Periods**: `r paste(sapply(params$periods, function(p) paste(range(p), collapse = "-")), collapse = ", ")`
+- **X Coordinate**: `r params$x`
+- **Y Coordinate**: `r params$y`
+- **Year**: `r params$year`
+- **Max Spatial Uncertainty**: `r params$maxSpatUncertainty`
+- **Resolution**: `r params$res`
+- **Log Count**: `r params$logCount`
+- **Identifier**: `r params$identifier`
+- **Output**: `r params$output`
+- **Minimum Periods**: `r params$minPeriod`
+- **Shapefile Uploaded**: `r params$shapefile_uploaded`
+- **Country**: `r params$country`
+
+*Note: You can access the reformatted data by loading the `your_formatted_data.csv` file.*
+
+```{r load-data}
+
+data <- read.csv("export/your_formatted_data.csv")
+```
+
+```{r load-shape}
+if (params$shapefile_uploaded) {
+  shp_dir <- "export/user_shapefile_spatial_coverage"
+  shp_files <- list.files(shp_dir, pattern = "\\.shp$", full.names = TRUE)
+  if (length(shp_files) == 0) stop("Shapefile (.shp) not found in uploaded folder")
+  shp_sf <- sf::st_read(shp_files[1])
+  shp <- as(shp_sf, "Spatial")
+} else {
+  countriesLow <- readRDS("export/countriesLow.rds")
+  shp <- countriesLow[countriesLow$ISO_A2 == params$country_iso2, ]
+}
+```
+
+```{r assess-spatial-cov}
+result <- assessSpatialCov(
+  dat = data,
+  periods = params$periods,
+  res = params$res,
+  logCount = params$logCount,
+  shp = shp,
+  species = params$species,
+  x = params$x,
+  y = params$y,
+  year = params$year,
+  spatialUncertainty = params$spatialUncertainty,
+  maxSpatUncertainty = if (params$output == "density") NULL else params$maxSpatUncertainty,
+  identifier = params$identifier,
+  output = params$output,
+  minPeriod = if (params$output %in% c("overlap", "nPeriods")) params$minPeriod else NULL
+)
+
+if (params$output == "density") {
+  result <- lapply(result, function(p) {
+    p + scale_fill_gradient(na.value = "white", low = "white", high = "blue") + coord_equal()
+  })
+} else if (params$output == "overlap") {
+  result <- lapply(result, function(p) {
+    p + coord_equal() + scale_fill_brewer(type = "qual") +
+      theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(),
+            axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+  })
+} else {
+  result <- lapply(result, function(p) {
+    p + coord_equal() +
+      theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(),
+            axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+  })
+}
+```
+
+```{r plot-results}
+if (is.list(result)) {
+  print(ggarrange(plotlist = result))
+} else {
+  print(result)
+}
+```

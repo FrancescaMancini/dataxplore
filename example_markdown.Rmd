@@ -1,0 +1,361 @@
+---
+title: "Comprehensive Bias Assessment"
+params:
+  periodtype: "years"
+  num: 1
+  date_ranges:
+    - [2000, 2005]
+  norm: "yes"
+  max_spat_uncert: 10000
+  type: "count"
+  res: 10000
+  prev: "Yes"
+  metric: "Coefficient of variation"
+  log: "FALSE"
+  min_periods: 2
+  output: "density"
+  shape: NULL
+  nSamps: 50
+  n_breaks: 50
+  env_var_column: "road_density"
+  env_data: !r readRDS("aux_file.rds")
+  data: !r readRDS("reformatted_data.rds")
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    theme: flatly
+---
+
+```{r setup for testing, include=FALSE}
+params <- list(
+  periodtype = "years",
+  num = 1,
+  date_ranges = list(c(2000, 2005)),
+  norm = "yes",
+  max_spat_uncert = 10000,
+  type = "count",
+  res = 10000,
+  prev = "Yes",
+  metric = "Coefficient of variation",
+  log = "FALSE",
+  min_periods = 2,
+  output = "density",
+  shape = NULL,
+  nSamps = 50,
+  n_breaks = 50,
+  env_var_column = "road_density",
+  env_data = readRDS("aux_file.rds"),
+  data = readRDS("reformatted_data.rds")
+)
+
+```
+
+```{r loading libraries}
+library(dplyr)
+library(occAssess)
+library(knitr)
+library(ggplot2)
+library(sf)
+library(sp)
+library(ggpubr)
+library(raster)
+library(patchwork)
+```
+
+## 1. Record Number Over Time
+
+```{r clean-data}
+cleaned_data <- params$data %>%
+  filter(!is.na(year))
+num_filtered <- nrow(params$data) - nrow(cleaned_data)
+if (num_filtered > 0) {
+  message(paste(num_filtered, "rows with NA values in the year column were removed."))
+}
+```
+
+```{r define-periods}
+if (params$periodtype == "ranges") {
+  periods <- lapply(params$date_ranges, function(range) {
+    from <- range[1]
+    to <- range[2]
+    seq(from = from, to = to)
+  })
+} else {
+  periods <- sort(unique(cleaned_data$year))
+}
+```
+
+```{r plot-record-number}
+res <- assessRecordNumber(
+  dat = cleaned_data,
+  species = "species",
+  periods = periods,
+  x = "x_coordinate",
+  y = "y_coordinate",
+  year = "year",
+  spatialUncertainty = NULL,
+  identifier = "identifier",
+  normalize = ifelse(tolower(params$norm) == "yes", TRUE, FALSE)
+)
+res$plot
+```
+
+### Notes
+The plot above shows the number of records per time period. Normalization adjusts counts to be comparable across different identifiers.
+
+## 2. Species Number Over Time
+
+```{r check-data}
+if (!("spatial_uncertainty" %in% names(params$data))) {
+  stop("This function requires the 'spatial_uncertainty' field in the dataset.")
+}
+```
+
+```{r clean-data}
+cleaned_data <- params$data %>%
+  filter(!is.na(year))
+num_filtered <- nrow(params$data) - nrow(cleaned_data)
+if (num_filtered > 0) {
+  message(paste(num_filtered, "rows with NA values in the year column were removed."))
+}
+```
+
+```{r define-periods}
+if (params$periodtype == "ranges") {
+  periods <- lapply(params$date_ranges, function(range) {
+    from <- range[1]
+    to <- range[2]
+    seq(from = from, to = to)
+  })
+} else {
+  periods <- sort(unique(cleaned_data$year))
+}
+```
+
+```{r plot-species-number}
+res <- assessSpeciesNumber(
+  dat = cleaned_data,
+  species = "species",
+  periods = periods,
+  x = "x_coordinate",
+  y = "y_coordinate",
+  year = "year",
+  spatialUncertainty = "spatial_uncertainty",
+  identifier = "identifier",
+  maxSpatUncertainty = params$max_spat_uncert,
+  normalize = ifelse(tolower(params$norm) == "yes", TRUE, FALSE)
+)
+res$plot
+```
+
+### Notes
+The plot above shows the number of species per time period, normalized to help compare identifiers with different record counts.
+
+## 3. Species Identification Over Time
+
+```{r}
+cleaned_data <- params$data %>%
+  filter(!is.na(year))
+
+if (!("spatial_uncertainty" %in% names(cleaned_data))) {
+  stop("This function requires the 'spatial_uncertainty' field in the dataset.")
+}
+
+if (params$periodtype == "ranges") {
+  periods <- lapply(params$date_ranges, function(range) {
+    seq(from = range[1], to = range[2])
+  })
+} else {
+  periods <- sort(unique(cleaned_data$year))
+}
+
+res <- assessSpeciesID(
+  dat = cleaned_data,
+  species = "species",
+  periods = periods,
+  x = "x_coordinate",
+  y = "y_coordinate",
+  year = "year",
+  spatialUncertainty = "spatial_uncertainty",
+  identifier = "identifier",
+  maxSpatUncertainty = params$max_spat_uncert,
+  type = params$type
+)
+
+res$plot
+```
+
+## 4. Rarity Bias Over Time
+
+```{r}
+cleaned_data <- params$data %>%
+  filter(!is.na(year))
+
+if (!("spatial_uncertainty" %in% names(cleaned_data))) {
+  stop("This function requires the 'spatial_uncertainty' field in the dataset.")
+}
+
+if (params$periodtype == "ranges") {
+  periods <- lapply(params$date_ranges, function(range) {
+    seq(from = range[1], to = range[2])
+  })
+} else {
+  periods <- sort(unique(cleaned_data$year))
+}
+
+res_rarity <- assessRarityBias(
+  dat = cleaned_data,
+  species = "species",
+  periods = periods,
+  x = "x_coordinate",
+  y = "y_coordinate",
+  year = "year",
+  spatialUncertainty = "spatial_uncertainty",
+  identifier = "identifier",
+  maxSpatUncertainty = params$max_spat_uncert,
+  res = params$res,
+  prevPerPeriod = ifelse(params$prev == "Yes", TRUE, FALSE),
+  metric = ifelse(params$metric == "Coefficient of variation", "r2", "cor")
+)
+
+res_rarity$plot
+```
+
+## 5. Spatial Coverage Over Time
+
+```{r}
+cleaned_data <- params$data %>%
+  filter(!is.na(year))
+
+if (params$periodtype == "ranges") {
+  periods <- lapply(params$date_ranges, function(range) {
+    seq(from = range[1], to = range[2])
+  })
+} else {
+  periods <- sort(unique(cleaned_data$year))
+}
+
+spat_cov <- assessSpatialCov(
+  dat = cleaned_data,
+  periods = periods,
+  res = params$res,
+  logCount = as.logical(params$log),
+  shp = params$shape,
+  species = "species",
+  x = "x_coordinate",
+  y = "y_coordinate",
+  year = "year",
+  spatialUncertainty = if (params$output != "density") "spatial_uncertainty" else NULL,
+  maxSpatUncertainty = if (params$output != "density") params$max_spat_uncert else NULL,
+  identifier = "identifier",
+  output = ifelse(params$output == "density", "density", "nPeriods"),
+  minPeriod = if (params$output != "density") params$min_periods else NULL
+)
+
+spat_cov <- lapply(spat_cov, function(p) {
+  p + coord_equal() + theme_minimal() + theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+})
+
+do.call(ggarrange, spat_cov)
+```
+
+## 6. Spatial Bias Over Time
+
+```{r}
+cleaned_data <- params$data %>%
+  filter(!is.na(year))
+
+if (params$periodtype == "ranges") {
+  periods <- lapply(params$date_ranges, function(range) {
+    seq(from = range[1], to = range[2])
+  })
+} else {
+  periods <- sort(unique(cleaned_data$year))
+}
+
+mask <- rasterize(params$shape, raster(nrow = 1000, ncol = 1000, ext = extent(params$shape)))
+
+res_bias <- assessSpatialBias(
+  dat = cleaned_data,
+  periods = periods,
+  mask = mask,
+  nSamps = params$nSamps,
+  degrade = TRUE,
+  species = "species",
+  x = "x_coordinate",
+  y = "y_coordinate",
+  year = "year",
+  spatialUncertainty = "spat_uncert",
+  identifier = "identifier"
+)
+
+res_bias$plot
+```
+
+## 7. Environmental Bias Over Time
+
+```{r}
+convert_x_coordinate_y_coordinate_to_monad <- function(x_coordinate, y_coordinate) {
+  grid_letters <- matrix(LETTERS[-9], ncol = 5, byrow = TRUE)[5:1, ]
+  xo_500 <- trunc(x_coordinate / 500000) + 3
+  yo_500 <- trunc(y_coordinate / 500000) + 2
+  s1 <- grid_letters[cbind(yo_500, xo_500)]
+  xo_100 <- trunc((x_coordinate %% 500000) / 100000) + 1
+  yo_100 <- trunc((y_coordinate %% 500000) / 100000) + 1
+  s2 <- grid_letters[cbind(yo_100, xo_100)]
+  monad_e <- trunc((x_coordinate %% 100000) / 1000)
+  monad_n <- trunc((y_coordinate %% 100000) / 1000)
+  monads <- paste0(s1, s2, sprintf("%02d%02d", monad_e, monad_n))
+  return(monads)
+}
+
+cleaned_data <- params$data %>%
+  filter(!is.na(year))
+
+if (params$periodtype == "ranges") {
+  periods <- lapply(params$date_ranges, function(range) seq(from = range[1], to = range[2]))
+} else {
+  unique_years_range <- range(unique(cleaned_data$year), na.rm = TRUE)
+  periods <- list(seq(from = unique_years_range[1], to = unique_years_range[2]))
+}
+
+positions <- cleaned_data %>%
+  dplyr::select(x_coordinate, y_coordinate, year) %>%
+  mutate(monad = convert_x_coordinate_y_coordinate_to_monad(x_coordinate, y_coordinate))
+
+env_data <- params$env_data %>%
+  filter(auxcolumn == params$env_var_column) %>%
+  dplyr::select(monad, value) %>%
+  rename(!!params$env_var_column := value)
+
+for (i in seq_along(periods)) {
+  monads_in_period <- positions %>%
+    filter(year %in% periods[[i]]) %>%
+    distinct(monad) %>%
+    pull(monad)
+  colname <- paste0("presence_", i)
+  env_data[[colname]] <- ifelse(env_data$monad %in% monads_in_period, 1, 0)
+}
+
+plots <- lapply(seq_along(periods), function(i) {
+  presence_col <- paste0("presence_", i)
+  assessBias1D(
+    pop = env_data,
+    breaks = params$n_breaks,
+    R = presence_col,
+    x = params$env_var_column,
+    RNames = presence_col
+  )$plot
+})
+
+wrap_plots(plots, ncol = 1)
+```
+
+### Notes
+These plots evaluate temporal and spatial bias metrics including sampling coverage, spatial clustering, and environmental representativeness.

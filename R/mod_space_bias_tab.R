@@ -59,7 +59,7 @@ mod_space_bias_tab_ui <- function(id) {
           ),
 
         actionButton(ns("plot_button"), "Plot"),
-        checkboxInput(ns("report"), "Add to report", FALSE)
+        actionButton(ns("export_report"), "Export Report")
       )),
       
       mainPanel(
@@ -75,7 +75,7 @@ mod_space_bias_tab_ui <- function(id) {
 #' space_bias_tab Server Functions
 #'
 #' @noRd
-mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2_country_names, countriesLow){
+mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2_country_names, countriesLow, tmp_dir = tmp_dir){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -138,12 +138,6 @@ sp_df <- eventReactive(input$plot_button, {
             # Convert to sp object
             shape_sp <- as(shape_input, "Spatial")
 
-            # # 🔹 Reproject to British National Grid
-            # shape_sp <- spTransform(
-            #     shape_sp,
-            #     CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-            # )
-
             incProgress(1, detail = "Done")
             
             return(shape_sp)
@@ -205,7 +199,7 @@ sp_df <- eventReactive(input$plot_button, {
 
         incProgress(0.8, detail = "Calculating spatial bias...")
 
-        plot <- assessSpatialBias(dat = data,
+        plot <- assessSpatialBias(dat = cleaned_data,
                                   periods = periods,
                                   mask = mask,
                                   nSamps = input$nSamps,
@@ -214,7 +208,7 @@ sp_df <- eventReactive(input$plot_button, {
                                   x = "x_coordinate",
                                   y = "y_coordinate",
                                   year = "year", 
-                                  spatialUncertainty = "spat_uncert",
+                                  spatialUncertainty = "spatial_uncertainty",
                                   identifier = "identifier")$plot
 
         incProgress(1, detail = "Finalizing plot...")
@@ -226,5 +220,64 @@ sp_df <- eventReactive(input$plot_button, {
     output$space_bias_plot <- renderPlot({
       plot_data()$plot
     })
+
+  observeEvent(input$export_report, {
+  req(reformatted_data(), input$nSamps, sp_df())
+
+  # Create export folder if needed
+  export_path <- file.path(tempdir(), "export")
+  dir.create(file.path(export_path, "user_shapefile_spatial_bias"), recursive = TRUE, showWarnings = FALSE)
+
+  # Save user shapefile or country shape
+  if (!is.null(input$shapefile)) {
+    shape_sf <- sf::st_as_sf(sp_df())
+    shapefile_name <- "user_shape"
+    sf::st_write(shape_sf, dsn = file.path(export_path, "user_shapefile_spatial_bias", paste0(shapefile_name, ".shp")),
+                 delete_layer = TRUE, delete_dsn = TRUE)
+  } else {
+    saveRDS(countriesLow, file = file.path(export_path, "countriesLow.rds"))
+  }
+
+  # Save reformatted data
+  write.csv(reformatted_data(), file = file.path(export_path, "your_formatted_data.csv"), row.names = FALSE)
+
+  # Get selected ISO2 code
+  iso_2_selected <- iso_2_country_names %>%
+    filter(country == input$country) %>%
+    pull(iso2)
+
+  # Get periods
+  if (input$periodtype == "ranges") {
+    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+    periods <- lapply(year_ranges, function(range) seq(from = range[1], to = range[2]))
+  } else {
+    periods <- sort(unique(reformatted_data()$year))
+  }
+
+  # Render Rmd
+  rmarkdown::render(
+    input = "markdown_files/mod_space_bias_tab_report.Rmd",
+    output_file = "spatial_bias_report.html",
+    output_dir = export_path,
+    params = list(
+      species = "species",
+      periods = periods,
+      x = "x_coordinate",
+      y = "y_coordinate",
+      year = "year",
+      spatialUncertainty = "spatial_uncertainty",
+      identifier = "identifier",
+      nSamps = input$nSamps,
+      shapefile_uploaded = !is.null(input$shapefile),
+      country = input$country,
+      country_iso2 = iso_2_selected
+    ),
+    knit_root_dir = tmp_dir,
+    envir = new.env(parent = globalenv())
+  )
+
+  showNotification("Spatial bias report generated. Check the Export tab.", type = "message")
+})
   })
 }

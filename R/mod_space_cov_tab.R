@@ -58,7 +58,7 @@ mod_space_cov_tab_ui <- function(id){
                   content = "output",
                   type = "markdown"),
         actionButton(ns("plot_button"), "Plot"),
-        checkboxInput(ns("report"), "Add to report", FALSE)
+        actionButton(ns("export_report"), "Export Report")
       )),
       mainPanel(
         h2("Spatial coverage"),
@@ -74,7 +74,7 @@ mod_space_cov_tab_ui <- function(id){
 #' 
 #' 
 #' @noRd
-mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, countriesLow){
+mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, countriesLow, tmp_dir){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -135,12 +135,6 @@ sp_df <- eventReactive(input$plot_button, {
 
             # Convert to sp object
             shape_sp <- as(shape_input, "Spatial")
-
-            # # 🔹 Reproject to British National Grid
-            # shape_sp <- spTransform(
-            #     shape_sp,
-            #     CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-            # )
 
             incProgress(1, detail = "Done")
             
@@ -299,5 +293,72 @@ sp_df <- eventReactive(input$plot_button, {
     output$space_cov_plot <- renderPlot({
       plot_data()$plot
     })
+
+    observeEvent(input$export_report, {
+  req(reformatted_data(), input$res, input$output)
+
+  if (input$periodtype == "ranges") {
+    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+    periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+  } else {
+    periods <- sort(unique(reformatted_data()$year))
+  }
+
+  tmp_export_dir <- file.path(tmp_dir, "export")
+  dir.create(tmp_export_dir, showWarnings = FALSE)
+
+  save_ifnot_exists(reformatted_data(), file.path(tmp_dir, "export", "your_formatted_data.csv"))
+
+  shapefile_uploaded <- !is.null(input$shapefile)
+
+  if (shapefile_uploaded) {
+    shapefile_dir <- file.path(tmp_export_dir, "user_shapefile_spatial_coverage")
+    dir.create(shapefile_dir, showWarnings = FALSE)
+    shape_names <- input$shapefile$name
+    shape_temp <- input$shapefile$datapath
+
+    for (i in seq_along(shape_names)) {
+      file.copy(shape_temp[i], file.path(shapefile_dir, shape_names[i]), overwrite = TRUE)
+    }
+  } else {
+    countriesLow_path <- file.path(tmp_export_dir, "countriesLow.rds")
+    if (!file.exists(countriesLow_path)) {
+      saveRDS(countriesLow, countriesLow_path)
+    }
+  }
+
+  iso_2_selected <- iso_2_country_names %>%
+    filter(country == input$country) %>%
+    pull(iso2)
+
+  rmarkdown::render(
+    input = "markdown_files/mod_space_cov_tab_report.Rmd",
+    output_file = "space_cov_report.html",
+    output_dir = tmp_export_dir,
+    params = list(
+      species = "species",
+      periods = periods,
+      x = "x_coordinate",
+      y = "y_coordinate",
+      year = "year",
+      spatialUncertainty = if (input$output == "density") NULL else "spatial_uncertainty",
+      maxSpatUncertainty = input$max_spat_uncert,
+      res = input$res,
+      logCount = input$log == "TRUE",
+      identifier = "identifier",
+      output = input$output,
+      minPeriod = input$min_periods,
+      shapefile_uploaded = shapefile_uploaded,
+      country = input$country,
+      country_iso2 = iso_2_selected
+    ),
+    knit_root_dir = tmp_dir,
+    envir = new.env(parent = globalenv())
+  )
+
+  showNotification("Report generated. Navigate to the export tab to download the HTML.", type = "message")
+})
+
   })
 }

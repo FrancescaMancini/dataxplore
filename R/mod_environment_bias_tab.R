@@ -176,11 +176,48 @@ plot <- eventReactive(input$plot_button, {
   })
 })
 
-
-
 output$env_bias_plot <- renderPlot({
   plot()
   })
+
+observeEvent(input$export_report, {
+  req(reformatted_data(), input$n_breaks, input$env_var_column)
+
+  if (input$periodtype == "ranges") {
+    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+    periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+  } else {
+    periods <- list(seq(min(reformatted_data()$year, na.rm = TRUE), max(reformatted_data()$year, na.rm = TRUE)))
+  }
+
+  tmp_export_dir <- file.path(tmp_dir, "export")
+  dir.create(tmp_export_dir, showWarnings = FALSE)
+
+  # Save formatted data
+  if (input$export_report) {
+
+    save_ifnot_exists(reformatted_data(), file.path(tmp_dir, "export", "your_formatted_data.csv"))
+    save_ifnot_exists(aux_file, file.path(tmp_dir, "export", "your_formatted_data.csv"))
+    save_ifnot_exists(variable_descriptions, file.path(tmp_dir, "export", "your_formatted_data.csv"))
+
+  }
+
+  rmarkdown::render(
+    input = "markdown_files/mod_environment_bias_tab_report.Rmd",
+    output_file = "environment_bias_report.html",
+    output_dir = tmp_export_dir,
+    params = list(
+      periods = periods,
+      n_breaks = input$n_breaks,
+      env_var_column = input$env_var_column
+    ),
+    knit_root_dir = tmp_dir,
+    envir = new.env(parent = globalenv())
+  )
+
+  showNotification("Report generated. Navigate to the export tab to download the HTML.", type = "message")
+})
 
   })
 }
