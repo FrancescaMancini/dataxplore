@@ -9,10 +9,22 @@ params:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load-packages}
 library(dplyr)
 library(ggplot2)
 library(patchwork)
-source("R/assessBias1D_modified.R")
+
+# install remotes to install occAssess
+if(!require(remotes)){
+  install.packages(remotes)
+}
+
+if(!require(occAssess)){
+  install_github("DylanCarbone/occAssess")
+}
+
 ```
 
 ## Input Parameters
@@ -47,11 +59,11 @@ data <- data %>%
 
 ```{r prepare-env-data}
 positions <- data %>%
-  select(monad, year)
+  dplyr::select(monad, year)
 
 env_data <- aux_file %>%
   filter(auxcolumn == params$env_var_column) %>%
-  select(monad, value) %>%
+  dplyr::select(monad, value) %>%
   rename(!!params$env_var_column := value)
 
 for (i in seq_along(params$periods)) {
@@ -68,7 +80,7 @@ for (i in seq_along(params$periods)) {
 
 ```{r plot-env-bias}
 plots <- lapply(seq_along(params$periods), function(i) {
-  assessBias1D_modified(
+  assessBias1D(
     pop = env_data,
     breaks = params$n_breaks,
     R = paste0("presence_", i),
@@ -78,3 +90,4 @@ plots <- lapply(seq_along(params$periods), function(i) {
 })
 
 wrap_plots(plots, ncol = 1)
+```

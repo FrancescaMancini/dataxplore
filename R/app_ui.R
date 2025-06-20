@@ -35,9 +35,7 @@ app_ui <- function(request) {
             uiOutput("spatial_uncertainty"),
 
             selectInput("id", "Choose the identifier", choices = NULL)
-            ),
-
-            checkboxInput("report", "Add to report", FALSE)
+            )
           ),
           mainPanel(
             DTOutput("uploaded_data_table"),
@@ -74,8 +72,7 @@ app_ui <- function(request) {
           tabPanel("Spatial bias", mod_space_bias_tab_ui("space_bias_tab_1"))
         )
       ),
-      tabPanel("Environment", mod_environment_bias_tab_ui("environment_bias_tab_1")),
-      tabPanel("Export", mod_export_tab_ui("export_tab_1"))
+      tabPanel("Environment", mod_environment_bias_tab_ui("environment_bias_tab_1"))
     )
   )
 }

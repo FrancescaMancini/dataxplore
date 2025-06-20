@@ -7,6 +7,7 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
+#' @importFrom zip zipr
 #' @import shinyhelper
 mod_species_rarity_bias_tab_ui <- function(id){
   ns <- NS(id)
@@ -57,7 +58,7 @@ mod_species_rarity_bias_tab_ui <- function(id){
         actionButton(
           ns("plot_button"), "Plot"
         ),
-        actionButton(ns("export_report"), "Export Report")
+        downloadButton(ns("export_report"), "Export Report")
       )),
       mainPanel(
         h2("Rarity bias"),
@@ -167,51 +168,63 @@ mod_species_rarity_bias_tab_server <- function(id, uploaded_data, reformatted_da
       plot_data()$plot
     })
 
-  observeEvent(input$export_report, {
-  req(input$max_spat_uncert, input$res, input$prev, input$metric, reformatted_data())
+output$export_report <- downloadHandler(
+  filename = function() {
+    paste0("species_rarity_bias_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
+  },
+  content = function(file) {
+    req(input$max_spat_uncert, input$res, input$prev, input$metric, reformatted_data())
 
-  if (!("spatial_uncertainty" %in% names(reformatted_data()))) {
-    showNotification("Spatial uncertainty data is required for export.", type = "error")
-    return(NULL)
+    if (!("spatial_uncertainty" %in% names(reformatted_data()))) {
+      showNotification("Spatial uncertainty data is required for export.", type = "error")
+      return(NULL)
+    }
+
+    # Define export directory
+    tmp_export_dir <- file.path(tmp_dir, "export")
+    if (!dir.exists(tmp_export_dir)) dir.create(tmp_export_dir, recursive = TRUE)
+
+    # Prepare periods
+    if (input$periodtype == "ranges") {
+      ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+      year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+      periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+    } else {
+      periods <- sort(unique(reformatted_data()$year))
+    }
+
+    # Save reformatted data
+    write.csv(reformatted_data(), file = file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
+
+    # Render RMarkdown report
+    rmarkdown::render(
+      input = "markdown_files/mod_species_rarity_bias_tab_report.Rmd",
+      output_file = "species_rarity_bias_report.html",
+      output_dir = tmp_export_dir,
+      params = list(
+        species = "species",
+        periods = periods,
+        x = "x_coordinate",
+        y = "y_coordinate",
+        year = "year",
+        spatialUncertainty = "spatial_uncertainty",
+        identifier = "identifier",
+        maxSpatUncertainty = input$max_spat_uncert,
+        res = input$res,
+        prevPerPeriod = ifelse(input$prev == "Yes", TRUE, FALSE),
+        metric = ifelse(input$metric == "Coefficient of variation", "r2", "cor")
+      ),
+      knit_root_dir = tmp_dir,
+      envir = new.env(parent = globalenv())
+    )
+
+    # Zip everything in the export folder
+    zip::zipr(zipfile = file, files = list.files(tmp_export_dir, full.names = TRUE), root = tmp_export_dir)
+
+    # Clean up after download
+    unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
   }
+)
 
-  if (input$periodtype == "ranges") {
-    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-    periods <- lapply(year_ranges, function(range) {
-      seq(range[1], range[2])
-    })
-  } else {
-    periods <- sort(unique(reformatted_data()$year))
-  }
-
-  tmp_export_dir <- file.path(tmp_dir, "export")
-  dir.create(tmp_export_dir, showWarnings = FALSE)
-
-  write.csv(reformatted_data(), file = file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
-
-  rmarkdown::render(
-    input = "markdown_files/mod_species_rarity_bias_tab_report.Rmd",
-    output_file = "species_rarity_bias_report.html",
-    output_dir = tmp_export_dir,
-    params = list(
-      species = "species",
-      periods = periods,
-      x = "x_coordinate",
-      y = "y_coordinate",
-      year = "year",
-      spatialUncertainty = "spatial_uncertainty",
-      identifier = "identifier",
-      maxSpatUncertainty = input$max_spat_uncert,
-      res = input$res,
-      prevPerPeriod = ifelse(input$prev == "Yes", TRUE, FALSE),
-      metric = ifelse(input$metric == "Coefficient of variation", "r2", "cor")
-    ),
-    knit_root_dir = tmp_dir,
-    envir = new.env(parent = globalenv())
-  )
-
-  showNotification("Report generated. Navigate to the export tab to download the HTML.", type = "message")
-})
   })
 }

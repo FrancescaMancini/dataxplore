@@ -8,6 +8,7 @@
 #'
 #' @importFrom shiny NS tagList
 #' @import raster dplyr shinyhelper
+#' @importFrom zip zipr
 #' 
 mod_space_bias_tab_ui <- function(id) {
   ns <- NS(id)
@@ -59,7 +60,7 @@ mod_space_bias_tab_ui <- function(id) {
           ),
 
         actionButton(ns("plot_button"), "Plot"),
-        actionButton(ns("export_report"), "Export Report")
+        downloadButton(ns("export_report"), "Export Report")
       )),
       
       mainPanel(
@@ -199,6 +200,11 @@ sp_df <- eventReactive(input$plot_button, {
 
         incProgress(0.8, detail = "Calculating spatial bias...")
 
+        if (!("spatial_uncertainty" %in% names(cleaned_data))){
+          showNotification(paste("This function requires the recording of spatial uncertainty in each entry"), type = "warning")
+          stop("Cancelling plot generation - see warning")
+        }
+
         plot <- assessSpatialBias(dat = cleaned_data,
                                   periods = periods,
                                   mask = mask,
@@ -221,63 +227,86 @@ sp_df <- eventReactive(input$plot_button, {
       plot_data()$plot
     })
 
-  observeEvent(input$export_report, {
-  req(reformatted_data(), input$nSamps, sp_df())
+output$export_report <- downloadHandler(
+  filename = function() {
+    paste0("spatial_bias_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
+  },
+  content = function(file) {
+    req(reformatted_data(), input$nSamps, sp_df())
 
-  # Create export folder if needed
-  export_path <- file.path(tempdir(), "export")
-  dir.create(file.path(export_path, "user_shapefile_spatial_bias"), recursive = TRUE, showWarnings = FALSE)
+    # Time periods
+    if (input$periodtype == "ranges") {
+      ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+      year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+      periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+    } else {
+      periods <- sort(unique(reformatted_data()$year))
+    }
 
-  # Save user shapefile or country shape
-  if (!is.null(input$shapefile)) {
-    shape_sf <- sf::st_as_sf(sp_df())
-    shapefile_name <- "user_shape"
-    sf::st_write(shape_sf, dsn = file.path(export_path, "user_shapefile_spatial_bias", paste0(shapefile_name, ".shp")),
-                 delete_layer = TRUE, delete_dsn = TRUE)
-  } else {
-    saveRDS(countriesLow, file = file.path(export_path, "countriesLow.rds"))
+    # Export folder
+    tmp_export_dir <- file.path(tmp_dir, "export")
+    dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
+
+    # Save reformatted data
+    write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
+
+    shapefile_uploaded <- !is.null(input$shapefile)
+
+    # Save region shapefile from sp_df()
+    if (shapefile_uploaded && !is.null(sp_df())) {
+      shapefile_dir <- file.path(tmp_export_dir, "user_shapefile")
+      dir.create(shapefile_dir, showWarnings = FALSE)
+
+      sf_obj <- sf::st_as_sf(sp_df())  # Convert sp to sf
+      sf::st_write(
+        obj = sf_obj,
+        dsn = shapefile_dir,
+        layer = "region_shapefile",  # Base name of output files
+        driver = "ESRI Shapefile",
+        append = FALSE,
+        quiet = TRUE
+      )
+    } else {
+      saveRDS(countriesLow, file.path(tmp_export_dir, "countriesLow.rds"))
+    }
+
+    iso_2_selected <- iso_2_country_names %>%
+      filter(country == input$country) %>%
+      pull(iso2)
+
+    # Render RMarkdown
+    rmarkdown::render(
+      input = "markdown_files/mod_space_bias_tab_report.Rmd",
+      output_file = "spatial_bias_report.html",
+      output_dir = tmp_export_dir,
+      params = list(
+        species = "species",
+        periods = periods,
+        x = "x_coordinate",
+        y = "y_coordinate",
+        year = "year",
+        spatialUncertainty = "spatial_uncertainty",
+        identifier = "identifier",
+        nSamps = input$nSamps,
+        shapefile_uploaded = shapefile_uploaded,
+        country = input$country,
+        country_iso2 = iso_2_selected
+      ),
+      knit_root_dir = tmp_dir,
+      envir = new.env(parent = globalenv())
+    )
+
+    # Zip and clean
+    zip::zipr(
+      zipfile = file,
+      files = list.files(tmp_export_dir, full.names = TRUE),
+      root = tmp_export_dir
+    )
+
+    unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
   }
+)
 
-  # Save reformatted data
-  write.csv(reformatted_data(), file = file.path(export_path, "your_formatted_data.csv"), row.names = FALSE)
-
-  # Get selected ISO2 code
-  iso_2_selected <- iso_2_country_names %>%
-    filter(country == input$country) %>%
-    pull(iso2)
-
-  # Get periods
-  if (input$periodtype == "ranges") {
-    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-    periods <- lapply(year_ranges, function(range) seq(from = range[1], to = range[2]))
-  } else {
-    periods <- sort(unique(reformatted_data()$year))
-  }
-
-  # Render Rmd
-  rmarkdown::render(
-    input = "markdown_files/mod_space_bias_tab_report.Rmd",
-    output_file = "spatial_bias_report.html",
-    output_dir = export_path,
-    params = list(
-      species = "species",
-      periods = periods,
-      x = "x_coordinate",
-      y = "y_coordinate",
-      year = "year",
-      spatialUncertainty = "spatial_uncertainty",
-      identifier = "identifier",
-      nSamps = input$nSamps,
-      shapefile_uploaded = !is.null(input$shapefile),
-      country = input$country,
-      country_iso2 = iso_2_selected
-    ),
-    knit_root_dir = tmp_dir,
-    envir = new.env(parent = globalenv())
-  )
-
-  showNotification("Spatial bias report generated. Check the Export tab.", type = "message")
-})
   })
+
 }

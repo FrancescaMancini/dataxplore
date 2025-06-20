@@ -11,8 +11,9 @@
 #' @importFrom bslib tooltip
 #' @importFrom bsicons bs_icon
 #' @importFrom shinyWidgets numericRangeInput
+#' @importFrom zip zipr
 #' @import shinyhelper
-#'
+#' 
 
 # UI Function
 
@@ -41,7 +42,7 @@ mod_time_bias_tab_ui <- function(id) {
         actionButton(
           ns("plot_button"), "Plot"
         ),
-        actionButton(ns("export_report"), "Export Report")
+        downloadButton(ns("export_report"), "Export Report")
       )),
       mainPanel(
         h2("Record number"),
@@ -124,42 +125,54 @@ mod_time_bias_tab_server <- function(id, reformatted_data, tmp_dir) {
       plot_data()$plot
     })
 
-observeEvent(input$export_report, {
-  req(reformatted_data())
+output$export_report <- downloadHandler(
+  filename = function() {
+    paste0("time_bias_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
+  },
+  content = function(file) {
+    export_dir <- file.path(tmp_dir, "export")
+    
+    dir.create(export_dir, recursive = TRUE)
 
-  if (input$periodtype == "ranges") {
-    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-    periods <- lapply(year_ranges, function(range) {
-      seq(range[1], range[2])
-    })
-  } else {
-    periods <- sort(unique(reformatted_data()$year))
+    # Save the dataset
+    write.csv(reformatted_data(), file.path(export_dir, "your_formatted_data.csv"))
+
+    # Get the periods based on user input
+    if (input$periodtype == "ranges") {
+      ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+      year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+      periods <- lapply(year_ranges, function(range) {
+        seq(range[1], range[2])
+      })
+    } else {
+      periods <- sort(unique(reformatted_data()$year))
+    }
+
+    # Render the R Markdown report into the export directory
+    rmarkdown::render(
+      input = "markdown_files/mod_time_bias_tab_report.Rmd",
+      output_file = "time_bias_report.html",
+      output_dir = export_dir,
+      params = list(
+        species = "species",
+        periods = periods,
+        x = "x_coordinate",
+        y = "y_coordinate",
+        year = "year",
+        spatialUncertainty = NULL,
+        identifier = "identifier",
+        normalize = ifelse(input$norm == "yes", TRUE, FALSE)
+      ),
+      knit_root_dir = tmp_dir
+    )
+
+    # Zip the entire export directory
+    zip::zipr(zipfile = file, files = list.files(export_dir, full.names = TRUE), root = export_dir)
+
+    # Optional: delete the folder after zipping
+    unlink(export_dir, recursive = TRUE, force = TRUE)
   }
-
-  # Save data to the known file name used in Rmd
-  save_ifnot_exists(reformatted_data(), file.path(tmp_dir, "export", "your_formatted_data.csv"))
-
-  # Render the R Markdown report
-  rmarkdown::render(
-    input = "markdown_files/mod_time_bias_tab_report.Rmd",
-    output_file = "time_bias_report.html",
-    output_dir = file.path(tmp_dir, "export"),
-    params = list(
-      species = "species",
-      periods = periods,
-      x = "x_coordinate",
-      y = "y_coordinate",
-      year = "year",
-      spatialUncertainty = NULL,
-      identifier = "identifier",
-      normalize = ifelse(input$norm == "yes", TRUE, FALSE)
-    ),
-    knit_root_dir = tmp_dir
-  )
-
-  showNotification("Report generated. Navigate to the export tab to download the HTML.", type = "message")
-  })
+)
 
   })
 }

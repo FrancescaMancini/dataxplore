@@ -7,9 +7,11 @@
 #' @noRd
 #'
 #' @importFrom shiny NS tagList
-#' @import ggplot2
+#' @importFrom zip zipr
 #' @importFrom methods as
+#' @import ggplot2
 #' @import sp shinyhelper
+#' @import occAssess
 #'
 mod_space_cov_tab_ui <- function(id){
   ns <- NS(id)
@@ -58,7 +60,7 @@ mod_space_cov_tab_ui <- function(id){
                   content = "output",
                   type = "markdown"),
         actionButton(ns("plot_button"), "Plot"),
-        actionButton(ns("export_report"), "Export Report")
+        downloadButton(ns("export_report"), "Export Report")
       )),
       mainPanel(
         h2("Spatial coverage"),
@@ -294,71 +296,87 @@ sp_df <- eventReactive(input$plot_button, {
       plot_data()$plot
     })
 
-    observeEvent(input$export_report, {
-  req(reformatted_data(), input$res, input$output)
+output$export_report <- downloadHandler(
+  filename = function() {
+    paste0("spatial_coverage_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
+  },
+  content = function(file) {
+    req(reformatted_data(), input$res, input$output)
 
-  if (input$periodtype == "ranges") {
-    ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-    year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-    periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
-  } else {
-    periods <- sort(unique(reformatted_data()$year))
-  }
-
-  tmp_export_dir <- file.path(tmp_dir, "export")
-  dir.create(tmp_export_dir, showWarnings = FALSE)
-
-  save_ifnot_exists(reformatted_data(), file.path(tmp_dir, "export", "your_formatted_data.csv"))
-
-  shapefile_uploaded <- !is.null(input$shapefile)
-
-  if (shapefile_uploaded) {
-    shapefile_dir <- file.path(tmp_export_dir, "user_shapefile_spatial_coverage")
-    dir.create(shapefile_dir, showWarnings = FALSE)
-    shape_names <- input$shapefile$name
-    shape_temp <- input$shapefile$datapath
-
-    for (i in seq_along(shape_names)) {
-      file.copy(shape_temp[i], file.path(shapefile_dir, shape_names[i]), overwrite = TRUE)
+    # Time periods
+    if (input$periodtype == "ranges") {
+      ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+      year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+      periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+    } else {
+      periods <- sort(unique(reformatted_data()$year))
     }
-  } else {
-    countriesLow_path <- file.path(tmp_export_dir, "countriesLow.rds")
-    if (!file.exists(countriesLow_path)) {
-      saveRDS(countriesLow, countriesLow_path)
+
+    # Export folder
+    tmp_export_dir <- file.path(tmp_dir, "export")
+    dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
+
+    # Save reformatted data
+    write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
+
+    shapefile_uploaded <- !is.null(input$shapefile)
+
+    if (shapefile_uploaded && !is.null(sp_df())) {
+      shapefile_dir <- file.path(tmp_export_dir, "user_shapefile")
+      dir.create(shapefile_dir, showWarnings = FALSE)
+
+      # Save sp_df() as shapefile using rgdal or sf
+      sf_obj <- sf::st_as_sf(sp_df())  # Convert from sp to sf if needed
+
+      sf::st_write(
+        obj = sf_obj,
+        dsn = shapefile_dir,
+        layer = "region_shapefile",  # Will produce region_shapefile.shp etc.
+        driver = "ESRI Shapefile",
+        append = FALSE,
+        quiet = TRUE
+      )
+    } else{
+      saveRDS(countriesLow, file.path(tmp_export_dir, "countriesLow.rds"))
     }
+
+    iso_2_selected <- iso_2_country_names %>%
+      filter(country == input$country) %>%
+      pull(iso2)
+
+    # Render RMarkdown
+    rmarkdown::render(
+      input = "markdown_files/mod_space_cov_tab_report.Rmd",
+      output_file = "space_cov_report.html",
+      output_dir = tmp_export_dir,
+      params = list(
+        species = "species",
+        periods = periods,
+        x = "x_coordinate",
+        y = "y_coordinate",
+        year = "year",
+        spatialUncertainty = if (input$output == "density") NULL else "spatial_uncertainty",
+        maxSpatUncertainty = input$max_spat_uncert,
+        res = input$res,
+        logCount = input$log == "TRUE",
+        identifier = "identifier",
+        output = input$output,
+        minPeriod = input$min_periods,
+        shapefile_uploaded = shapefile_uploaded,
+        country = input$country,
+        country_iso2 = iso_2_selected
+      ),
+      knit_root_dir = tmp_dir,
+      envir = new.env(parent = globalenv())
+    )
+
+    # Zip the export folder
+    zip::zipr(zipfile = file, files = list.files(tmp_export_dir, full.names = TRUE), root = tmp_export_dir)
+
+    # Clean up
+    unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
   }
-
-  iso_2_selected <- iso_2_country_names %>%
-    filter(country == input$country) %>%
-    pull(iso2)
-
-  rmarkdown::render(
-    input = "markdown_files/mod_space_cov_tab_report.Rmd",
-    output_file = "space_cov_report.html",
-    output_dir = tmp_export_dir,
-    params = list(
-      species = "species",
-      periods = periods,
-      x = "x_coordinate",
-      y = "y_coordinate",
-      year = "year",
-      spatialUncertainty = if (input$output == "density") NULL else "spatial_uncertainty",
-      maxSpatUncertainty = input$max_spat_uncert,
-      res = input$res,
-      logCount = input$log == "TRUE",
-      identifier = "identifier",
-      output = input$output,
-      minPeriod = input$min_periods,
-      shapefile_uploaded = shapefile_uploaded,
-      country = input$country,
-      country_iso2 = iso_2_selected
-    ),
-    knit_root_dir = tmp_dir,
-    envir = new.env(parent = globalenv())
-  )
-
-  showNotification("Report generated. Navigate to the export tab to download the HTML.", type = "message")
-})
+)
 
   })
 }

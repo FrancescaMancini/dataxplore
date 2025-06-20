@@ -21,11 +21,24 @@ params:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(occAssess)
+```
+
+```{r load-packages}
+
 library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
 library(ggpubr)
+
+# install remotes to install occAssess
+if(!require(remotes)){
+  install.packages(remotes)
+}
+
+if(!require(occAssess)){
+  install_github("DylanCarbone/occAssess")
+}
+
 ```
 
 ## Input Parameters
@@ -53,7 +66,7 @@ data <- read.csv("export/your_formatted_data.csv")
 
 ```{r load-shape}
 if (params$shapefile_uploaded) {
-  shp_dir <- "export/user_shapefile_spatial_coverage"
+  shp_dir <- "export/user_shapefile"
   shp_files <- list.files(shp_dir, pattern = "\\.shp$", full.names = TRUE)
   if (length(shp_files) == 0) stop("Shapefile (.shp) not found in uploaded folder")
   shp_sf <- sf::st_read(shp_files[1])
