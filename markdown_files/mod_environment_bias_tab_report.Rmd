@@ -5,6 +5,7 @@ params:
   n_breaks: 50
   periods: NULL
   env_var_column: NULL
+  crs: NULL
 ---
 
 ```{r setup, include=FALSE}
@@ -30,8 +31,9 @@ if(!require(occAssess)){
 ## Input Parameters
 
 - **Number of Breaks**: `r params$n_breaks`
-- **Periods**: `r paste(sapply(params$periods, function(p) paste(range(p), collapse = "-")), collapse = ", ")`
+- **Periods (Note: This is a list object)**: `r paste(sapply(params$periods, function(p) paste(range(p), collapse = "-")), collapse = ", ")`
 - **Environmental Variable**: `r params$env_var_column`
+- **crs**: `r params$crs`
 
 ```{r load-data}
 data <- read.csv("export/your_formatted_data.csv")
@@ -39,22 +41,45 @@ aux_file <- read.csv("export/aux_file.csv")
 ```
 
 ```{r map-to-monads}
-convert_x_coordinate_y_coordinate_to_monad <- function(x_coordinate, y_coordinate) {
+convert_x_coordinate_y_coordinate_to_monad  <- function(x_coordinate, y_coordinate, crs) {
+
+  # Convert to OSGB36 eastings/northings if coordinates are lat/lon
+  crs_obj <- st_crs(crs)
+
+  if (crs_obj$IsGeographic) {
+    coords_sf <- st_as_sf(data.frame(lon = x_coordinate, lat = y_coordinate),
+                          coords = c("lon", "lat"),
+                          crs = crs)
+    coords_osgb <- st_transform(coords_sf, 27700)
+    xy <- st_coordinates(coords_osgb)
+    x_coordinate <- xy[, "X"]
+    y_coordinate <- xy[, "Y"]
+  }
+
+  # OSGB 100k grid letter lookup (A-Z, skipping I)
   grid_letters <- matrix(LETTERS[-9], ncol = 5, byrow = TRUE)[5:1, ]
+
+  # First letter: 500 km grid square
   xo_500 <- trunc(x_coordinate / 500000) + 3
   yo_500 <- trunc(y_coordinate / 500000) + 2
   s1 <- grid_letters[cbind(yo_500, xo_500)]
+
+  # Second letter: 100 km grid square
   xo_100 <- trunc((x_coordinate %% 500000) / 100000) + 1
   yo_100 <- trunc((y_coordinate %% 500000) / 100000) + 1
   s2 <- grid_letters[cbind(yo_100, xo_100)]
+
+  # Numeric part: 1 km square (monad)
   monad_e <- trunc((x_coordinate %% 100000) / 1000)
   monad_n <- trunc((y_coordinate %% 100000) / 1000)
+
+  # Combine into full monad code
   monads <- paste0(s1, s2, sprintf("%02d%02d", monad_e, monad_n))
   return(monads)
 }
 
 data <- data %>%
-  mutate(monad = convert_x_coordinate_y_coordinate_to_monad(x_coordinate, y_coordinate))
+  mutate(monad = convert_x_coordinate_y_coordinate_to_monad(x_coordinate, y_coordinate, crs = params$crs))
 ```
 
 ```{r prepare-env-data}

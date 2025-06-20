@@ -16,7 +16,6 @@ mod_data_tab_ui <- function(id) {
     mainPanel(
       fluidRow(
         column(2, actionButton(ns("species_summary_button"), "Species summary")),
-        column(2, actionButton(ns("year_summary_button"), "Dates summary")),
         column(2, actionButton(ns("year_summary_button"), "Year summary")),
         column(2, actionButton(ns("id_summary_button"), "Identifier summary")),
         column(2, actionButton(ns("coords_summary_button"), "Calculate bounds"))
@@ -61,22 +60,9 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data, reformatted_
       "Species Summary"
     })
 
-    # Date summary
-    year_summary <- eventReactive(input$year_summary_button, {
-      req(reformatted_data()$year)
-
-      data.frame(`First Record Year` = min(reformatted_data()$year), `Last Record Year` = max(reformatted_data()$year))
-
-    })
-
     output$year_summary_table <- DT::renderDT({
       req(year_summary())
       year_summary()
-    })
-
-    output$date_title <- renderText({
-      req(user_selections()$date, input$year_summary_button)
-      "Date Summary"
     })
 
     # Number of records per year
@@ -131,14 +117,14 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data, reformatted_
 
     # Bounding box
     bbox <- eventReactive(input$coords_summary_button, {
-      req(uploaded_data(), user_selections()$northing, user_selections()$easting)
-      uploaded_data() %>%
-        dplyr::select(user_selections()$northing, user_selections()$easting) %>%
-        summarise(
-          `Northing Min` = min(eval(as.name(user_selections()$northing))),
-          `Northing Max` = max(eval(as.name(user_selections()$northing))),
-          `Easting Min` = min(eval(as.name(user_selections()$easting))),
-          `Easting Max` = max(eval(as.name(user_selections()$easting)))
+      req(reformatted_data(), user_selections()$x_coordinate, user_selections()$y_coordinate)
+
+      reformatted_data() %>%
+       summarise(
+          `y-coordinate Min` = min(reformatted_data()$y_coordinate),
+          `y-coordinate Max` = max(reformatted_data()$y_coordinate),
+          `x-coordinate Min` = min(reformatted_data()$x_coordinate),
+          `x-coordinate Max` = max(reformatted_data()$x_coordinate)
         )
     })
 

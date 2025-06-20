@@ -35,7 +35,7 @@ if(!require(occAssess)){
 ## Input Parameters
 
 - **Species**: `r params$species`
-- **Periods**: `r paste(sapply(params$periods, function(p) paste(range(p), collapse = "-")), collapse = ", ")`
+- **Periods (Note: This is a list object)**: `r paste(sapply(params$periods, function(p) paste(range(p), collapse = "-")), collapse = ", ")`
 - **X Coordinate**: `r params$x`
 - **Y Coordinate**: `r params$y`
 - **Year**: `r params$year`
@@ -43,8 +43,6 @@ if(!require(occAssess)){
 - **Identifier**: `r params$identifier`
 - **Max Spatial Uncertainty**: `r params$maxSpatUncertainty`
 - **Type**: `r params$type`
-
-*Note: You can access the reformatted data by loading the `your_formatted_data.csv` file.*
 
 ```{r load-data}
 data <- read.csv("export/your_formatted_data.csv")

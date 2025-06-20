@@ -31,6 +31,9 @@ app_server <- function(input, output, session) {
   })
 
   data_ready <- reactiveVal(FALSE)
+  
+  # reactive value to store northing and easting conversion results with default value. Placed higher to ensure reset when new data is uploaded
+  conversion_result <- reactiveVal()
 
   observeEvent(input$upload, {
   data_ready(FALSE)
@@ -43,6 +46,7 @@ app_server <- function(input, output, session) {
   shinyjs::reset("mod_space_cov_tab")
   shinyjs::reset("mod_space_bias_tab")
 
+  conversion_result(NULL)
   data_ready(TRUE)
   })
 
@@ -51,7 +55,7 @@ app_server <- function(input, output, session) {
 
     if (!input$grid_ref) {
       tagList(
-        selectInput("y_coordinate", "y coordinate column (NOTE: This can be any CRS. It must however match any spatial parameters you specify later, such as spatial resolution and uncertainty. Additionally, )", choices = c(), selected = FALSE),
+        selectInput("y_coordinate", "y coordinate column (NOTE: This can be any CRS. It must however match any spatial parameters you specify later, such as spatial resolution and uncertainty.)", choices = c(), selected = FALSE),
         selectInput("x_coordinate", "x coordinate column", choices = c(), selected = FALSE),
         # checkboxInput("convert_osgb36", "Are you using decimal degrees?")
       )
@@ -126,7 +130,7 @@ app_server <- function(input, output, session) {
 
     req(uploaded_data())
 
-    if(input$grid_ref){
+    if(!input$grid_ref){
 
     updateSelectInput(session, "y_coordinate", choices = colnames(uploaded_data()), selected = FALSE)
     updateSelectInput(session, "x_coordinate", choices = colnames(uploaded_data()), selected = FALSE)
@@ -183,9 +187,6 @@ app_server <- function(input, output, session) {
     }
   })
 
-  # New reactive value to store northing and easting conversion results with default value
-  conversion_result <- reactiveVal()
-
   observeEvent(input$grid_ref_convert, {
     req(input$grid_ref_column)
 
@@ -194,7 +195,7 @@ app_server <- function(input, output, session) {
     # convert to northing x_coordinate
     result <- osg_parse(grid_refs = sites, coord_system = "BNG")
 
-    conversion_result(data.frame("y_coordinate" = result$y_coordinate, "x_coordinate" = result$easting))
+    conversion_result(data.frame("y_coordinate" = result$northing, "x_coordinate" = result$easting))
   })
 
   reformatted_data <- reactive({
@@ -364,7 +365,7 @@ app_server <- function(input, output, session) {
   })
 
   # Create a server for the export
-  tmp_dir <- file.path(getwd(), "export_dir") # tempdir()
+  tmp_dir <- tempdir() # file.path(getwd(), "export_dir") # tempdir()
   dir.create(file.path(tmp_dir, "export"), recursive = TRUE)
 
   # Load modules

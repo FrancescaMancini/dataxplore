@@ -8,7 +8,7 @@
 #'
 #' @importFrom shiny NS tagList
 #' @importFrom zip zipr
-#' @import occAssess
+#' @import occAssess sf
 mod_environment_bias_tab_ui <- function(id){
   ns <- NS(id)
   
@@ -31,6 +31,7 @@ mod_environment_bias_tab_ui <- function(id){
           helper(icon = "info-circle", colour = "black", 
                   content = "time_period",
                   type = "markdown"),
+        numericInput(ns("crs"), "Enter your data CRS (note, longitude/latitude = 4326, easting/northing = 27700)", value = 27700),
         selectInput(ns("env_var_column"), "Environmental variables column", choices = NULL, selected = FALSE) %>%
           helper(icon = "info-circle", colour = "black", 
                   content = "time_period",
@@ -89,7 +90,21 @@ mod_environment_bias_tab_server <- function(id, reformatted_data, tmp_dir){
     updateSelectInput(session, "env_var_column", choices = choices)
   })
 
-convert_x_coordinate_y_coordinate_to_monad <- function(x_coordinate, y_coordinate) {
+convert_x_coordinate_y_coordinate_to_monad  <- function(x_coordinate, y_coordinate, crs) {
+
+  # Convert to OSGB36 eastings/northings if coordinates are lat/lon
+  crs_obj <- st_crs(crs)
+
+  if (crs_obj$IsGeographic) {
+    coords_sf <- st_as_sf(data.frame(lon = x_coordinate, lat = y_coordinate),
+                          coords = c("lon", "lat"),
+                          crs = crs)
+    coords_osgb <- st_transform(coords_sf, 27700)
+    xy <- st_coordinates(coords_osgb)
+    x_coordinate <- xy[, "X"]
+    y_coordinate <- xy[, "Y"]
+  }
+
   # OSGB 100k grid letter lookup (A-Z, skipping I)
   grid_letters <- matrix(LETTERS[-9], ncol = 5, byrow = TRUE)[5:1, ]
 
@@ -132,7 +147,7 @@ plot <- eventReactive(input$plot_button, {
     # 2. Convert WGS84 to monads
     positions <- reformatted_data() %>%
       dplyr::select(x_coordinate, y_coordinate, year) %>%
-      mutate(monad = convert_x_coordinate_y_coordinate_to_monad(x_coordinate, y_coordinate))
+      mutate(monad = convert_x_coordinate_y_coordinate_to_monad(x_coordinate, y_coordinate, crs = input$crs))
 
     incProgress(0.5, detail = "Preparing environmental data...")
 
@@ -216,7 +231,8 @@ output$export_report <- downloadHandler(
       params = list(
         periods = periods,
         n_breaks = input$n_breaks,
-        env_var_column = input$env_var_column
+        env_var_column = input$env_var_column,
+        crs = input$crs
       ),
       knit_root_dir = tmp_dir,
       envir = new.env(parent = globalenv())
