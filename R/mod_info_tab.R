@@ -24,20 +24,20 @@ mod_info_tab_ui <- function(id){
         h2("Resources"),
         uiOutput(ns("text4"))
       ),
-      
+
       # Footer
       div(
         style = "position: relative; margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc;",
         div(
           style = "display: flex; justify-content: space-between; align-items: center;",
-          
+
           # Logo
           tags$img(
-            src = "www/ukceh_logo.png", 
-            height = "50px", 
+            src = "www/ukceh_logo.png",
+            height = "50px",
             style = "margin-left: 10px;"
           ),
-          
+
           # Privacy Policy Link
           tags$div(
             style = "margin-right: 10px; font-size: 14px;",
@@ -69,9 +69,16 @@ mod_info_tab_server <- function(id){
       HTML(
         paste(
           "<p>There are seven tabs in dataXplore. It is recommended that users read the information in the Info tab before attempting to use the app for the first time. After reading the Info tab, the user can upload the dataset they want to screen for bias in the “Data” tab. After the dataset has been uploaded and all the required information entered in the “Data” tab, the user can open any of the other tabs in any order.</p>",
-          "<p>The app accepts data in csv format and the file must contain the following fields: species names; x and y coordinates of the species occurrence (any coordinate reference system may be used); alternatively British National grid References of the grid square in which the occurrence was recorded can be supplied and converted into northing and easting within the “Data” tab; the date of the occurrence; the year of the occurrence; the spatial uncertainty associated with the coordinates (units do not matter but must be consistent, for example if x and y coordinates are easting and northing, the spatial uncertainty needs to be specified in meters: 10 if the coordinates specify a 10m square, 1000 if they specify a 1km square etc.); and an identifier, which is used to split the data into groups (for example it could represent taxonomic groups or data sources). Missing information in any field should be indicated by “NA”. The column names do not need to match the fields, instead the column name for each field must be specified in the “Data” tab. See the table below for an example set of input data.</p>",
+          "<p>The app accepts data in csv format and the file must contain the following fields:</p>",
+          "<p>- species names: the name of the species observed;</p>",
+          "<p>- date or year: the date or year of the species observation;</p>",
+          "<p>- x and y coordinates of the location of the species occurrence (any coordinate reference system may be used), alternatively British National Grid Reference of the grid square in which the occurrence was recorded can be supplied and converted into northing and easting within the “Data” tab;</p>",
+          "<p>- spatial uncertainty: the precision of the spatial coordinates (e.g. 1000 meters), units do not matter but should be consistent (for example if x and y coordinates are easting and northing, the spatial uncertainty needs to be specified in meters). This information is only used to filter out some records, for example if you want to explore how biases change when imprecise records are excluded, but this step is not required. If you do not know the spatial precision of your observations, or you think it is the same for all observations, then just assign a number to all records;</p>",
+          "<p>- identifier, a variable identifying groups in the data (e.g. taxonomic groups, data sources or any other group you may want to compare across). Please limit the number of identifiers to a maximum of 6, as any more would produce cluttered plots. If no groups exist just assign one group to all observations.</p>",
+          "<p>Missing information in any field should be indicated by “NA”. The column names do not need to match the fields, instead the column name for each field must be specified in the “Data” tab. See the table below for an example set of input data.</p>",
+          "<p>Additionally, the user should provide a shapefile of the boundaries of the survey region, and this needs to be in the same coordinate reference system as the species data. Alternatively, if the coordinates of the species data are in WGS84 and the survey region is a country, the user can use country shapefiles provided within the app. This is relevant for the 'Space' and 'Environment' tab.</p>",
           "<p>The tabs “Time”, “Species”, “Space” and “Environment” explore common biases in these domains. Each tab has a sidebar to specify arguments required by dataXplore to compute and visualise the metrics. After entering the required inputs, the user can click on the plot button to visualise the output. Each tab has guidance on the input required and what the output shows. You can download our worked examples to see what the outputs look like for simulated data.</p>",
-          "<p>At the bottom of the sidebar in each tab, the user has the option to add the output, as well as the code and input used to generate it, to a downloadable report by ticking the checkbox “Add to report”.</p>"
+          "<p>At the bottom of the sidebar in each tab, the user has the option to export the code and the data behind the plots for further analysis or visualisation.</p>"
         )
       )
     })

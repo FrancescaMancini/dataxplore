@@ -48,8 +48,8 @@ mod_species_bias_tab_ui <- function(id){
       )),
       mainPanel(
         h2("Species number"),
-        p("The metric displayed in the plot is simply the number of records in each time period for each level of the identifier. This provides a measure of sampling intensity and how it changes over time. A change in the number of records over time could reflect a change in recording intensity, which is likely to affect the prevalence of some species in the dataset in a non-random way."),
-        p("If the number of records differs widely between levels of the identifier, we recommend setting Normalise = Yes so that the indices for each level of the identifier fall on a comparable scale, making it easier to assess temporal variation in number of records for the levels with fewer records."),
+        p("The metric displayed in the plot is the number of species recorded in each time period for each level of the identifier. It provides a measure of taxonomic coverage and how it changes over time. Changes in the numbers of species recorded could also reflect true extinction/colonisation events in a dataset, but, for heterogeneous, aggregated, data, issues of uneven taxonomic representativeness across time are considerably more likely."),
+        p("If the number of species differs widely between levels of the identifier, we recommend setting Normalise = Yes so that the indices for each level of the identifier fall on a comparable scale, making it easier to assess temporal variation in number of species for the levels with fewer species."),
         plotOutput(ns("species_num_plot"))
       )
     )
@@ -59,7 +59,7 @@ mod_species_bias_tab_ui <- function(id){
 mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data, tmp_dir){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
-    
+
     output$numUI <- renderUI({
       req(input$periodtype == "ranges")
       numericInput(

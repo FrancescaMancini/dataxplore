@@ -11,7 +11,7 @@
 #' @import occAssess sf
 mod_environment_bias_tab_ui <- function(id){
   ns <- NS(id)
-  
+
   tagList(
     sidebarLayout(
       sidebarPanel(
@@ -22,19 +22,19 @@ mod_environment_bias_tab_ui <- function(id){
           choiceValues = list("years", "ranges"),
           selected = "years"
         ) %>%
-        helper(icon = "info-circle", colour = "black", 
+        helper(icon = "info-circle", colour = "black",
           content = "time_period",
           type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
         numericInput(ns("n_breaks"), "Number of breaks", value = 50) %>%
-          helper(icon = "info-circle", colour = "black", 
-                  content = "time_period",
+          helper(icon = "info-circle", colour = "black",
+                  content = "breaks",
                   type = "markdown"),
         numericInput(ns("crs"), "Enter your data CRS (note, longitude/latitude = 4326, easting/northing = 27700)", value = 27700),
         selectInput(ns("env_var_column"), "Environmental variables column", choices = NULL, selected = FALSE) %>%
-          helper(icon = "info-circle", colour = "black", 
-                  content = "time_period",
+          helper(icon = "info-circle", colour = "black",
+                  content = "environmental_variables",
                   type = "markdown"),
         actionButton(ns("plot_button"), "Plot"),
         downloadButton(ns("export_report"), "Export Report")
@@ -177,7 +177,7 @@ plot <- eventReactive(input$plot_button, {
     plots <- lapply(seq_along(periods), function(i) {
 
       presence_col <- paste0("presence_", i)
-      
+
       assessBias1D(
         pop = env_data,
         breaks = input$n_breaks,

@@ -9,7 +9,7 @@
 #' @importFrom shiny NS tagList
 #' @import raster dplyr shinyhelper
 #' @importFrom zip zipr
-#' 
+#'
 mod_space_bias_tab_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -23,7 +23,7 @@ mod_space_bias_tab_ui <- function(id) {
           selected = "years"
         ) %>%
           helper(
-            icon = "info-circle", colour = "black", 
+            icon = "info-circle", colour = "black",
             content = "time_period",
             type = "markdown"
           ),
@@ -35,7 +35,7 @@ mod_space_bias_tab_ui <- function(id) {
           ns("country"), "Country", choices = NULL, selected = FALSE
         ) %>%
           helper(
-            icon = "info-circle", colour = "black", 
+            icon = "info-circle", colour = "black",
             content = "country",
             type = "markdown"
           ),
@@ -45,24 +45,24 @@ mod_space_bias_tab_ui <- function(id) {
           multiple = TRUE
         ) %>%
           helper(
-            icon = "info-circle", colour = "black", 
+            icon = "info-circle", colour = "black",
             content = "shape_file_mask",
             type = "markdown"
           ),
 
         numericInput(
-          ns("nSamps"), "Number of iterations", value = 50
+          ns("nSamps"), "Number of simulations", value = 50
         ) %>%
           helper(
-            icon = "info-circle", colour = "black", 
-            content = "iteration",
+            icon = "info-circle", colour = "black",
+            content = "iterations",
             type = "markdown"
           ),
 
         actionButton(ns("plot_button"), "Plot"),
         downloadButton(ns("export_report"), "Export Report")
       )),
-      
+
       mainPanel(
         h2("Spatial bias"),
         p("The metric displayed in the plot is an index of spatial bias, which quantifies the degree to which a sample deviates from a random distribution within the area of interest. The metric is based on the Nearest Neighbour Index (NNI), given as the ratio of the average observed nearest neighbour distances (the Euclidean distance of each data point to its nearest neighbouring point) to the expected average nearest neighbour distance if the data were randomly distributed. The function simulates a user specified number of datasets (Number of simulations) randomly across the study area in equal number to the occurrence data. The NNI can then be given as the ratio of the average observed nearest neighbour distances in the data to the average of the simulated nearest neighbour distances. By using simulations, the function can provide uncertainty associated with the index (the function will display 90% confidence intervals by default). The index displayed in the plot can be interpreted as how far the observed distribution deviates from a random distribution of the same density. Values between 0 and 1 are more clustered than a random distribution, and values above 1 are more widely dispersed."),
@@ -116,7 +116,7 @@ sp_df <- eventReactive(input$plot_button, {
     if (!is.null(input$shapefile)) {
         withProgress(message = "Loading shapefile...", value = 0, {
             tempdirname <- dirname(input$shapefile$datapath[1])
-            
+
             # Rename files to maintain the correct format
             for (i in 1:nrow(input$shapefile)) {
                 file.rename(
@@ -124,9 +124,9 @@ sp_df <- eventReactive(input$plot_button, {
                     paste0(tempdirname, "/", input$shapefile$name[i])
                 )
             }
-            
+
             incProgress(0.5, detail = "Reading shapefile...")
-            
+
             # Read shapefile using `sf`
             shape_input <- sf::st_read(paste(
                 tempdirname,
@@ -140,7 +140,7 @@ sp_df <- eventReactive(input$plot_button, {
             shape_sp <- as(shape_input, "Spatial")
 
             incProgress(1, detail = "Done")
-            
+
             return(shape_sp)
         })
     } else if (!is.null(input$country) && input$country != "") {
@@ -149,11 +149,11 @@ sp_df <- eventReactive(input$plot_button, {
         iso_2_selected <- iso_2_country_names %>%
             filter(country == input$country) %>%
             pull(iso2)
-        
+
         if (length(iso_2_selected) == 0) return(NULL)
-        
+
         country_shape <- countriesLow[countriesLow$ISO_A2 == iso_2_selected, ]
-        
+
         if (nrow(country_shape) == 0) return(NULL)
 
         # # Reproject to British National Grid
@@ -161,7 +161,7 @@ sp_df <- eventReactive(input$plot_button, {
         #     country_shape,
         #     CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
         # )
-        
+
         return(country_shape)
     } else {
         return(NULL)
@@ -195,7 +195,7 @@ sp_df <- eventReactive(input$plot_button, {
         }
 
         incProgress(0.6, detail = "Creating raster mask...")
-        mask <- rasterize(sp_df(), 
+        mask <- rasterize(sp_df(),
                           raster(nrow = 1000, ncol = 1000, extent(sp_df())))
 
         incProgress(0.8, detail = "Calculating spatial bias...")
@@ -213,12 +213,12 @@ sp_df <- eventReactive(input$plot_button, {
                                   species = "species",
                                   x = "x_coordinate",
                                   y = "y_coordinate",
-                                  year = "year", 
+                                  year = "year",
                                   spatialUncertainty = "spatial_uncertainty",
                                   identifier = "identifier")$plot
 
         incProgress(1, detail = "Finalizing plot...")
-        
+
         list(plot = plot)
       })
     })
