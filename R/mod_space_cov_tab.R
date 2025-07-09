@@ -76,7 +76,7 @@ mod_space_cov_tab_ui <- function(id){
 #' 
 #' 
 #' @noRd
-mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, countriesLow, tmp_dir){
+mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, countriesLow, tmp_dir, dev){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -346,7 +346,7 @@ output$export_report <- downloadHandler(
 
     # Render RMarkdown
     rmarkdown::render(
-      input = "markdown_files/mod_space_cov_tab_report.Rmd",
+      input = get_markdown_path("mod_space_cov_tab_report.Rmd", dev = dev),
       output_file = "space_cov_report.html",
       output_dir = tmp_export_dir,
       params = list(

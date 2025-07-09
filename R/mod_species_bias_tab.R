@@ -56,7 +56,7 @@ mod_species_bias_tab_ui <- function(id){
   )
 }
 
-mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data, tmp_dir){
+mod_species_bias_tab_server <- function(id, reformatted_data, uploaded_data, tmp_dir, dev){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
@@ -165,7 +165,7 @@ output$export_report <- downloadHandler(
 
     # Render R Markdown
     rmarkdown::render(
-      input = "markdown_files/mod_species_bias_tab_report.Rmd",
+      input = get_markdown_path("mod_species_bias_tab_report.Rmd", dev = dev),
       output_file = "species_bias_report.html",
       output_dir = tmp_export_dir,
       params = list(

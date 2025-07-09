@@ -37,7 +37,9 @@ if(!require(occAssess)){
 
 ```{r load-data}
 data <- read.csv("export/your_formatted_data.csv")
-aux_file <- read.csv("export/aux_file.csv")
+
+# NOTE: The aux_file is very large and so we load it directly as an rds file rather than a csv
+aux_file <- readRDS("export/aux_file.rds")
 ```
 
 ```{r map-to-monads}

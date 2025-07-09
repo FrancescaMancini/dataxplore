@@ -16,7 +16,6 @@ Imports:
     golem,
     sf,
     shinipsum,
-    rworldmap,
     shinyhelper,
     shiny,
     spData,

@@ -67,21 +67,21 @@ mod_data_tab_server <- function(id, user_selections, uploaded_data, reformatted_
 
     # Number of records per year
     year_summary <- eventReactive(input$year_summary_button, {
-      req(uploaded_data(), user_selections()$date, user_selections()$date_format)
+      req(uploaded_data(), reformatted_data())
 
-      dates = uploaded_data() %>% pull(user_selections()$date)
+      if ("year" %in% colnames(reformatted_data())){
 
-        if (user_selections()$date_format == "format_a") {
-          dates <- lubridate::dmy(dates, quiet = TRUE)
-        } else if (user_selections()$date_format == "format_b") {
-          dates <- lubridate::mdy(dates, quiet = TRUE)
-        } else if (user_selections()$date_format == "format_c") {
-          dates <- lubridate::ymd(dates, quiet = TRUE)
-        }
+        years_tally = reformatted_data() %>%
+        group_by(year) %>%
+        summarise(`Number of Records` = n())
 
-      data.frame(Year = year(dates)) %>%
-      group_by(Year) %>%
-      summarise(`Number of Records` = n())
+        return(years_tally)
+
+      } else{
+
+        return(NULL)
+      }
+
     })
 
     output$year_summary_table <- DT::renderDT({

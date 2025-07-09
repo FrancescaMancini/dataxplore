@@ -74,7 +74,7 @@ mod_species_rarity_bias_tab_ui <- function(id){
 #' rarity_bias_tab Server Functions
 #'
 #' @noRd
-mod_species_rarity_bias_tab_server <- function(id, uploaded_data, reformatted_data, tmp_dir){
+mod_species_rarity_bias_tab_server <- function(id, uploaded_data, reformatted_data, tmp_dir, dev){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -198,7 +198,7 @@ output$export_report <- downloadHandler(
 
     # Render RMarkdown report
     rmarkdown::render(
-      input = "markdown_files/mod_species_rarity_bias_tab_report.Rmd",
+      input = get_markdown_path("mod_species_rarity_bias_tab_report.Rmd", dev = dev),
       output_file = "species_rarity_bias_report.html",
       output_dir = tmp_export_dir,
       params = list(

@@ -54,7 +54,7 @@ mod_time_bias_tab_ui <- function(id) {
   )
 }
 
-mod_time_bias_tab_server <- function(id, reformatted_data, tmp_dir) {
+mod_time_bias_tab_server <- function(id, reformatted_data, tmp_dir, dev) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -150,7 +150,7 @@ output$export_report <- downloadHandler(
 
     # Render the R Markdown report into the export directory
     rmarkdown::render(
-      input = "markdown_files/mod_time_bias_tab_report.Rmd",
+      input = get_markdown_path("mod_time_bias_tab_report.Rmd", dev = dev),
       output_file = "time_bias_report.html",
       output_dir = export_dir,
       params = list(

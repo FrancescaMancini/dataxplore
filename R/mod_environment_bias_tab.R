@@ -52,7 +52,7 @@ mod_environment_bias_tab_ui <- function(id){
 #' environment_bias_tab Server Functions
 #'
 #' @noRd
-mod_environment_bias_tab_server <- function(id, reformatted_data, tmp_dir){
+mod_environment_bias_tab_server <- function(id, reformatted_data, tmp_dir, dev){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
@@ -202,47 +202,54 @@ output$export_report <- downloadHandler(
     paste0("environment_bias_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
   },
   content = function(file) {
-    req(reformatted_data(), input$n_breaks, input$env_var_column)
+    withProgress(message = "Generating report...", value = 0, {
+      req(reformatted_data(), input$n_breaks, input$env_var_column)
 
-    # Determine time periods
-    if (input$periodtype == "ranges") {
-      ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-      year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-      periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
-    } else {
-      periods <- list(seq(min(reformatted_data()$year, na.rm = TRUE),
-                          max(reformatted_data()$year, na.rm = TRUE)))
-    }
+      incProgress(0.1, detail = "Defining time periods...")
+      if (input$periodtype == "ranges") {
+        ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+        year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+        periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+      } else {
+        periods <- list(seq(min(reformatted_data()$year, na.rm = TRUE),
+                            max(reformatted_data()$year, na.rm = TRUE)))
+      }
 
-    # Create export directory
-    tmp_export_dir <- file.path(tmp_dir, "export")
-    dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
+      incProgress(0.3, detail = "Saving input datasets...")
+      tmp_export_dir <- file.path(tmp_dir, "export")
+      dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
 
-    # Save input datasets
-    write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
-    write.csv(aux_file, file.path(tmp_export_dir, "aux_file.csv"), row.names = FALSE)
-    write.csv(variable_descriptions, file.path(tmp_export_dir, "variable_descriptions.csv"), row.names = FALSE)
+      
+      # Save datasets for export
+      write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
+      
+      # Save aux_file as rds because it is too large as a csv for the posit server
+      saveRDS(aux_file, file.path(tmp_export_dir, "aux_file.rds"))
 
-    # Render RMarkdown
-    rmarkdown::render(
-      input = "markdown_files/mod_environment_bias_tab_report.Rmd",
-      output_file = "environment_bias_report.html",
-      output_dir = tmp_export_dir,
-      params = list(
-        periods = periods,
-        n_breaks = input$n_breaks,
-        env_var_column = input$env_var_column,
-        crs = input$crs
-      ),
-      knit_root_dir = tmp_dir,
-      envir = new.env(parent = globalenv())
-    )
+      # Save the variable definitions
+      write.csv(variable_descriptions, file.path(tmp_export_dir, "variable_descriptions.csv"), row.names = FALSE)
 
-    # Zip everything
-    zip::zipr(zipfile = file, files = list.files(tmp_export_dir, full.names = TRUE), root = tmp_export_dir)
+      incProgress(0.6, detail = "Rendering RMarkdown report...")
+      rmarkdown::render(
+        input = get_markdown_path("mod_environment_bias_tab_report.Rmd", dev = dev),
+        output_file = "environment_bias_report.html",
+        output_dir = tmp_export_dir,
+        params = list(
+          periods = periods,
+          n_breaks = input$n_breaks,
+          env_var_column = input$env_var_column,
+          crs = input$crs
+        ),
+        knit_root_dir = tmp_dir,
+        envir = new.env(parent = globalenv())
+      )
 
-    # Cleanup
-    unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
+      incProgress(0.9, detail = "Zipping output...")
+      zip::zipr(zipfile = file, files = list.files(tmp_export_dir, full.names = TRUE), root = tmp_export_dir)
+
+      incProgress(1, detail = "Cleaning up...")
+      unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
+    })
   }
 )
 

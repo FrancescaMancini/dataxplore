@@ -76,7 +76,7 @@ mod_space_bias_tab_ui <- function(id) {
 #' space_bias_tab Server Functions
 #'
 #' @noRd
-mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2_country_names, countriesLow, tmp_dir = tmp_dir){
+mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2_country_names, countriesLow, tmp_dir = tmp_dir, dev){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
 
@@ -276,7 +276,7 @@ output$export_report <- downloadHandler(
 
     # Render RMarkdown
     rmarkdown::render(
-      input = "markdown_files/mod_space_bias_tab_report.Rmd",
+      input = get_markdown_path("mod_space_bias_tab_report.Rmd", dev = dev),
       output_file = "spatial_bias_report.html",
       output_dir = tmp_export_dir,
       params = list(
