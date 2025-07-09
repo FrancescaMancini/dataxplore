@@ -31,6 +31,7 @@ app_ui <- function(request) {
             uiOutput("date_year_ui"),
             uiOutput("y_coordinate_x_coordinate"),
             
+            ## please add documentation ##
             checkboxInput("has_spatial_uncertainty", "Do you have a column recording spatial uncertainty?", FALSE),
             uiOutput("spatial_uncertainty"),
 

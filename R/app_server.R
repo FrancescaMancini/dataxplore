@@ -55,7 +55,11 @@ app_server <- function(input, output, session) {
 
     if (!input$grid_ref) {
       tagList(
-        selectInput("y_coordinate", "y coordinate column (NOTE: This can be any CRS. It must however match any spatial parameters you specify later, such as spatial resolution and uncertainty.)", choices = c(), selected = FALSE),
+
+        ## please add documentation ##
+        tags$p("NOTE: This can be any CRS. It must however match any spatial parameters you specify later, such as spatial resolution and uncertainty."),
+
+        selectInput("y_coordinate", "y coordinate column", choices = c(), selected = FALSE),
         selectInput("x_coordinate", "x coordinate column", choices = c(), selected = FALSE),
         # checkboxInput("convert_osgb36", "Are you using decimal degrees?")
       )
@@ -365,7 +369,7 @@ app_server <- function(input, output, session) {
   })
 
   # Are we developing locally?
-  dev = TRUE
+  dev = FALSE
 
   # Create a server for the export
   tmp_dir <- tempdir() # file.path(getwd(), "export_dir") # tempdir()
