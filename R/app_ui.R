@@ -32,9 +32,14 @@ app_ui <- function(request) {
             uiOutput("y_coordinate_x_coordinate"),
             
             ## please add documentation ##
-            checkboxInput("has_spatial_uncertainty", "Do you have a column recording spatial uncertainty?", FALSE),
-            uiOutput("spatial_uncertainty"),
-
+            selectInput(
+              "spat_uncert", "Spatial Uncertainty column",
+              choices = NULL) %>%
+            helper(
+                icon = "info-circle", colour = "black", 
+                content = "spatial_uncertainty",
+                type = "markdown"
+            ),
             selectInput("id", "Choose the identifier", choices = NULL)
             )
           ),

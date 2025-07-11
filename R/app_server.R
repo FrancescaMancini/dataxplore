@@ -46,6 +46,17 @@ app_server <- function(input, output, session) {
   shinyjs::reset("mod_space_cov_tab")
   shinyjs::reset("mod_space_bias_tab")
 
+  # Delay ensures UI is rebuilt before resetting values
+  shinyjs::delay(100, {
+
+    updateSelectInput(session, "species", selected = "")
+    updateSelectInput(session, "date", selected = "")
+    updateSelectInput(session, "y_coordinate", selected = "")
+    updateSelectInput(session, "x_coordinate", selected = "")
+    updateSelectInput(session, "spat_uncert", selected = "")
+    updateSelectInput(session, "id", selected = "")
+  })
+
   conversion_result(NULL)
   data_ready(TRUE)
   })
@@ -59,28 +70,9 @@ app_server <- function(input, output, session) {
         ## please add documentation ##
         tags$p("NOTE: This can be any CRS. It must however match any spatial parameters you specify later, such as spatial resolution and uncertainty."),
 
-        selectInput("y_coordinate", "y coordinate column", choices = c(), selected = FALSE),
-        selectInput("x_coordinate", "x coordinate column", choices = c(), selected = FALSE),
+        selectInput("y_coordinate", "y coordinate column", choices = c(), selected = ""),
+        selectInput("x_coordinate", "x coordinate column", choices = c(), selected = ""),
         # checkboxInput("convert_osgb36", "Are you using decimal degrees?")
-      )
-    } else {
-      NULL  # Remove y_coordinate/x_coordinate inputs when grid reference conversion is selected
-    }
-  })
-
-  # Generate UI elements for y coordinate and x_coordinate inputs dynamically using selectInput
-  output$spatial_uncertainty <- renderUI({
-
-    if (input$has_spatial_uncertainty) {
-      tagList(
-    selectInput(
-      "spat_uncert", "Spatial Uncertainty column",
-      choices = NULL) %>%
-    helper(
-        icon = "info-circle", colour = "black", 
-        content = "spatial_uncertainty",
-        type = "markdown"
-    )
       )
     } else {
       NULL  # Remove y_coordinate/x_coordinate inputs when grid reference conversion is selected
@@ -113,21 +105,12 @@ app_server <- function(input, output, session) {
 
     col_choices <- colnames(uploaded_data())
 
-    updateSelectInput(session, "species", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "id", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "grid_ref_column", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "y_coordinate", choices = col_choices, selected = FALSE)
-    updateSelectInput(session, "x_coordinate", choices = col_choices, selected = FALSE)
-  })
-  
-  observeEvent(input$has_spatial_uncertainty, {
-
-    req(uploaded_data())
-
-    col_choices <- colnames(uploaded_data())
-
-    updateSelectInput(session, "spat_uncert", choices = col_choices, selected = FALSE)
-
+    updateSelectInput(session, "species", choices = col_choices, selected = "")
+    updateSelectInput(session, "id", choices = col_choices, selected = "")
+    updateSelectInput(session, "grid_ref_column", choices = col_choices, selected = "")
+    updateSelectInput(session, "y_coordinate", choices = col_choices, selected = "")
+    updateSelectInput(session, "x_coordinate", choices = col_choices, selected = "")
+    updateSelectInput(session, "spat_uncert", choices = col_choices, selected = "")
   })
 
   observeEvent(input$grid_ref, {
@@ -136,8 +119,8 @@ app_server <- function(input, output, session) {
 
     if(!input$grid_ref){
 
-    updateSelectInput(session, "y_coordinate", choices = colnames(uploaded_data()), selected = FALSE)
-    updateSelectInput(session, "x_coordinate", choices = colnames(uploaded_data()), selected = FALSE)
+    updateSelectInput(session, "y_coordinate", choices = colnames(uploaded_data()), selected = "")
+    updateSelectInput(session, "x_coordinate", choices = colnames(uploaded_data()), selected = "")
 
     } else{
 
@@ -152,11 +135,11 @@ app_server <- function(input, output, session) {
 
     if(input$has_year_column){
 
-      updateSelectInput(session, "year", choices = colnames(uploaded_data()), selected = FALSE)
+      updateSelectInput(session, "year", choices = colnames(uploaded_data()), selected = "")
 
     } else{
 
-      updateSelectInput(session, "date", choices = colnames(uploaded_data()), selected = FALSE)
+      updateSelectInput(session, "date", choices = colnames(uploaded_data()), selected = "")
     }
 
   })
@@ -167,11 +150,11 @@ app_server <- function(input, output, session) {
 
     if(input$has_year_column){
 
-      updateSelectInput(session, "year", choices = colnames(uploaded_data()), selected = FALSE)
+      updateSelectInput(session, "year", choices = colnames(uploaded_data()), selected = "")
 
     } else{
 
-      updateSelectInput(session, "date", choices = colnames(uploaded_data()), selected = FALSE)
+      updateSelectInput(session, "date", choices = colnames(uploaded_data()), selected = "")
     }
   })
 
@@ -208,88 +191,42 @@ app_server <- function(input, output, session) {
   reformatted_data <- reactive({
     req(uploaded_data(), data_ready()) # Ensure there's uploaded data
 
-    data <- uploaded_data()
+    data <- data.frame()
 
-    if (!is.null(conversion_result()) && "y_coordinate" %in% names(conversion_result()) && "x_coordinate" %in% names(conversion_result())) {
-      data$y_coordinate <- conversion_result()$y_coordinate
-      data$x_coordinate <- conversion_result()$x_coordinate
-      y_coordinate_x_coordinate_names <- as.character(c("y_coordinate", "x_coordinate"))
-    } else {
-      y_coordinate_x_coordinate_names <- as.character(c(input$y_coordinate, input$x_coordinate))
+    # latitude and longitude
+    if(!is.null(conversion_result())){
+
+      data <- create_column_if_exists(data, "y_coordinate", conversion_result(), "y_coordinate")
+      data <- create_column_if_exists(data, "x_coordinate", conversion_result(), "x_coordinate")
     }
 
-    cols_to_select <- c(input$species, input$year, input$id)
+    data <- create_column_if_exists(data, "y_coordinate", uploaded_data(), input$y_coordinate)
+    data <- create_column_if_exists(data, "x_coordinate", uploaded_data(), input$x_coordinate)
 
-    cols_to_select <- cols_to_select[!is.null(cols_to_select)]
-    cols_to_select <- cols_to_select[cols_to_select != ""]
+    # species, identifier, and spatial uncertainty
+    browser()
+    data <- create_column_if_exists(data, "species", uploaded_data(), input$species)
+    data <- create_column_if_exists(data, "identifier", uploaded_data(), input$id)
+    data <- create_column_if_exists(data, "spatial_uncertainty", uploaded_data(), input$spat_uncert)
 
-    if (length(cols_to_select) > 0 && all(cols_to_select %in% colnames(data))) {
-      formatted_data <- dplyr::select(data, !!!syms(cols_to_select))
+    # year or date
+    data <- create_column_if_exists(data, "year", uploaded_data(), input$year)
+    data <- create_column_if_exists(data, "year", uploaded_data(), input$date)
 
-      if (nchar(input$species)) {
-        formatted_data <- rename(formatted_data, species = !!sym(input$species))
-      }
-
-      if (input$has_year_column){
-
-        if (!is.null(input$year)){
-
-          if(nchar(input$year) > 0){
-
-          formatted_data <- rename(formatted_data, year = !!sym(input$year))
-        }
-
-        }
-
-      } else{
-
-        if (nchar(input$date) > 0){
-
-          dates = data %>% pull(!!sym(input$date))
+    if(!input$has_year_column && "year" %in% colnames(data)){
 
           if (input$date_format == "format_a") {
-          dates <- lubridate::dmy(dates, quiet = TRUE)
+          data$year <- year( lubridate::dmy(dates, quiet = TRUE))
           } else if (input$date_format == "format_b") {
-          dates <- lubridate::mdy(dates, quiet = TRUE)
+          data$year <- year(lubridate::mdy(dates, quiet = TRUE))
           } else if (input$date_format == "format_c") {
-          dates <- lubridate::ymd(dates, quiet = TRUE)
+          data$year <- year(lubridate::ymd(dates, quiet = TRUE))
           }
-          formatted_data$year <- year(dates)
-        }
-
-      }
-
-      if (nchar(input$id) > 0) {
-        formatted_data <- rename(formatted_data, identifier = !!sym(input$id))
-      }
-    } else {
-      formatted_data <- data.frame()
-    }
-
-    if (length(y_coordinate_x_coordinate_names) == 2) {
-
-      if (nrow(formatted_data) == 0) {
-        formatted_data <- dplyr::select(data, !!!syms(y_coordinate_x_coordinate_names))
-      } else {
-        formatted_data <- cbind(formatted_data, dplyr::select(data, !!!syms(y_coordinate_x_coordinate_names)))
-      }
-
-      formatted_data <- rename(formatted_data, y_coordinate = !!sym(y_coordinate_x_coordinate_names[1]))
-      formatted_data <- rename(formatted_data, x_coordinate = !!sym(y_coordinate_x_coordinate_names[2]))
 
     }
-    
-    if(input$has_spatial_uncertainty && !is.null(input$spat_uncert) && input$spat_uncert != ""){
 
+    return(data)
 
-        if (nrow(formatted_data) == 0) {
-          formatted_data <- dplyr::select(data, input$spat_uncert)
-        } else {
-          formatted_data = formatted_data %>% mutate(spatial_uncertainty = data %>% pull(input$spat_uncert))
-        }
-    }
-
-    return(formatted_data)
   })
 
   # Render uploaded data table
