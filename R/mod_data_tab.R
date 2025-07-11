@@ -14,21 +14,29 @@ mod_data_tab_ui <- function(id) {
 
   tagList(
     mainPanel(
+      # Buttons row
       fluidRow(
-        column(2, actionButton(ns("species_summary_button"), "Species summary")),
-        column(2, actionButton(ns("year_summary_button"), "Year summary")),
-        column(2, actionButton(ns("id_summary_button"), "Identifier summary")),
-        column(2, actionButton(ns("coords_summary_button"), "Calculate bounds"))
+        column(3, actionButton(ns("species_summary_button"), "Species summary")),
+        column(3, actionButton(ns("year_summary_button"), "Year summary")),
+        column(3, actionButton(ns("id_summary_button"), "Identifier summary")),
+        column(3, actionButton(ns("coords_summary_button"), "Calculate bounds"))
       ),
 
+      br(),
+
+      # Species summary section
       h2(textOutput(ns("species_title"))),
       DTOutput(ns("species_summary_table")),
+
+      # Year summary section
       h2(textOutput(ns("date_title"))),
       DTOutput(ns("year_summary_table")),
-      h2(textOutput(ns("year_title"))),
-      DTOutput(ns("year_summary_table")),
+
+      # Identifier summary section
       h2(textOutput(ns("id_title"))),
       DTOutput(ns("id_summary_table")),
+
+      # Bounding box summary section
       h2(textOutput(ns("coords_title"))),
       DTOutput(ns("coords_summary_table"))
     )
@@ -38,103 +46,108 @@ mod_data_tab_ui <- function(id) {
 #' data_tab Server Functions
 #'
 #' @noRd
-mod_data_tab_server <- function(id, user_selections, uploaded_data, reformatted_data) {
+mod_data_tab_server <- function(id, uploaded_data, reformatted_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # Number of records per species
+    # Species summary
     species_summary <- eventReactive(input$species_summary_button, {
-      req(uploaded_data(), user_selections()$species)
-      uploaded_data() %>%
-        group_by(Species = get(user_selections()$species)) %>%
-        summarise(`Number of Records` = n())
+      req(reformatted_data())
+      if ("species" %in% colnames(reformatted_data())) {
+        reformatted_data() %>%
+          group_by(species) %>%
+          summarise(`Number of Records` = n(), .groups = "drop") %>%
+          rename(Species = species)
+      } else {
+        NULL
+      }
     })
 
-    output$species_summary_table <- DT::renderDT({
+    output$species_summary_table <- renderDT({
       req(species_summary())
       species_summary()
     })
 
     output$species_title <- renderText({
-      req(user_selections()$species, input$species_summary_button)
+      req(species_summary())
       "Species Summary"
     })
 
-    output$year_summary_table <- DT::renderDT({
-      req(year_summary())
-      year_summary()
-    })
-
-    # Number of records per year
+    # Year summary
     year_summary <- eventReactive(input$year_summary_button, {
-      req(uploaded_data(), reformatted_data())
-
-      if ("year" %in% colnames(reformatted_data())){
-
-        years_tally = reformatted_data() %>%
-        group_by(year) %>%
-        summarise(`Number of Records` = n())
-
-        return(years_tally)
-
-      } else{
-
-        return(NULL)
+      req(reformatted_data())
+      if ("year" %in% colnames(reformatted_data())) {
+        reformatted_data() %>%
+          group_by(year) %>%
+          summarise(`Number of Records` = n(), .groups = "drop")
+      } else {
+        NULL
       }
-
     })
 
-    output$year_summary_table <- DT::renderDT({
+    output$year_summary_table <- renderDT({
       req(year_summary())
       year_summary()
     })
 
-    output$year_title <- renderText({
-      req(user_selections()$date, input$year_summary_button)
+    output$date_title <- renderText({
+      req(year_summary())
       "Year Summary"
     })
 
-    # Number of records per group (ID)
+    # Identifier summary
     id_summary <- eventReactive(input$id_summary_button, {
-      req(uploaded_data(), user_selections()$id, user_selections()$species)
-      uploaded_data() %>%
-        group_by(`Identifier` = get(user_selections()$id)) %>%
-        summarise(
-          `Number of Records` = n(),
-          `Number of Species` = n_distinct(get(user_selections()$species))
-        )
+      req(reformatted_data())
+
+      if ("identifier" %in% colnames(reformatted_data()) &&
+          "species" %in% colnames(reformatted_data())) {
+        reformatted_data() %>%
+          group_by(identifier) %>%
+          summarise(
+            `Number of Records` = n(),
+            `Number of Species` = n_distinct(species),
+            .groups = "drop"
+          ) %>%
+          rename(Identifier = identifier)
+      } else {
+        NULL
+      }
     })
 
-    output$id_summary_table <- DT::renderDT({
+    output$id_summary_table <- renderDT({
       req(id_summary())
       id_summary()
     })
 
     output$id_title <- renderText({
-      req(user_selections()$id, input$id_summary_button)
+      req(id_summary())
       "Identifier Summary"
     })
 
-    # Bounding box
+    # Bounding box summary
     bbox <- eventReactive(input$coords_summary_button, {
-      req(reformatted_data(), user_selections()$x_coordinate, user_selections()$y_coordinate)
+      req(reformatted_data())
 
-      reformatted_data() %>%
-       summarise(
-          `y-coordinate Min` = min(reformatted_data()$y_coordinate),
-          `y-coordinate Max` = max(reformatted_data()$y_coordinate),
-          `x-coordinate Min` = min(reformatted_data()$x_coordinate),
-          `x-coordinate Max` = max(reformatted_data()$x_coordinate)
-        )
+      if (all(c("x_coordinate", "y_coordinate") %in% colnames(reformatted_data()))) {
+        reformatted_data() %>%
+          summarise(
+            `y-coordinate Min` = min(y_coordinate, na.rm = TRUE),
+            `y-coordinate Max` = max(y_coordinate, na.rm = TRUE),
+            `x-coordinate Min` = min(x_coordinate, na.rm = TRUE),
+            `x-coordinate Max` = max(x_coordinate, na.rm = TRUE)
+          )
+      } else {
+        NULL
+      }
     })
 
-    output$coords_summary_table <- DT::renderDT({
+    output$coords_summary_table <- renderDT({
       req(bbox())
       bbox()
     })
 
     output$coords_title <- renderText({
-      req(user_selections()$northing, user_selections()$easting, input$coords_summary_button)
+      req(bbox())
       "Bounding Box"
     })
   })

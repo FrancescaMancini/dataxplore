@@ -30,13 +30,12 @@ app_server <- function(input, output, session) {
     uploaded_data(data)
   })
 
-  data_ready <- reactiveVal(FALSE)
+  data_ready <- reactiveVal()
   
   # reactive value to store northing and easting conversion results with default value. Placed higher to ensure reset when new data is uploaded
   conversion_result <- reactiveVal()
 
   observeEvent(input$upload, {
-  data_ready(FALSE)
   shinyjs::reset("data_upload_inputs")
   shinyjs::reset("mod_environment_bias_tab")
   shinyjs::reset("mod_time_bias_tab")
@@ -45,34 +44,21 @@ app_server <- function(input, output, session) {
   shinyjs::reset("mod_species_bias_tab")
   shinyjs::reset("mod_space_cov_tab")
   shinyjs::reset("mod_space_bias_tab")
-
-  # Delay ensures UI is rebuilt before resetting values
-  shinyjs::delay(100, {
-
-    updateSelectInput(session, "species", selected = "")
-    updateSelectInput(session, "date", selected = "")
-    updateSelectInput(session, "y_coordinate", selected = "")
-    updateSelectInput(session, "x_coordinate", selected = "")
-    updateSelectInput(session, "spat_uncert", selected = "")
-    updateSelectInput(session, "id", selected = "")
-  })
-
-  conversion_result(NULL)
+  
   data_ready(TRUE)
+
   })
 
-  # Generate UI elements for y coordinate and x_coordinate inputs dynamically using selectInput
+  # Generate UI elements for y coordinate and x_coordinate inputs dynamically using varSelectInput
   output$y_coordinate_x_coordinate <- renderUI({
 
     if (!input$grid_ref) {
       tagList(
 
-        ## please add documentation ##
-        tags$p("NOTE: This can be any CRS. It must however match any spatial parameters you specify later, such as spatial resolution and uncertainty."),
+        tags$p("NOTE: This can be any CRS. It must however match with the spatial metrics you specify later, including the spatial resolution and uncertainty."),
 
-        selectInput("y_coordinate", "y coordinate column", choices = c(), selected = ""),
-        selectInput("x_coordinate", "x coordinate column", choices = c(), selected = ""),
-        # checkboxInput("convert_osgb36", "Are you using decimal degrees?")
+        varSelectInput("y_coordinate", "y coordinate column", data = data.frame(), selected = character(0),  selectize = FALSE),
+        varSelectInput("x_coordinate", "x coordinate column", data = data.frame(), selected = character(0),  selectize = FALSE)
       )
     } else {
       NULL  # Remove y_coordinate/x_coordinate inputs when grid reference conversion is selected
@@ -83,7 +69,7 @@ app_server <- function(input, output, session) {
 
     if (!input$has_year_column) {
       tagList(
-            selectInput("date", "Date column", choices = NULL),
+            varSelectInput("date", "Date column", data = data.frame(), selected = character(0),  selectize = FALSE),
 
             radioButtons("date_format", "Select date format (please ignore separator)",
               choices = c(
@@ -95,7 +81,7 @@ app_server <- function(input, output, session) {
             )
       )
     } else {
-      selectInput("year", "Year column", choices = NULL)
+      varSelectInput("year", "Year column", data = data.frame(), selected = character(0),  selectize = FALSE)
     }
   })
 
@@ -103,14 +89,12 @@ app_server <- function(input, output, session) {
   observe({
     req(uploaded_data())  # Ensure uploaded_data is not NULL before updating selections
 
-    col_choices <- colnames(uploaded_data())
-
-    updateSelectInput(session, "species", choices = col_choices, selected = "")
-    updateSelectInput(session, "id", choices = col_choices, selected = "")
-    updateSelectInput(session, "grid_ref_column", choices = col_choices, selected = "")
-    updateSelectInput(session, "y_coordinate", choices = col_choices, selected = "")
-    updateSelectInput(session, "x_coordinate", choices = col_choices, selected = "")
-    updateSelectInput(session, "spat_uncert", choices = col_choices, selected = "")
+    updateVarSelectInput(session, "species", data = uploaded_data(), selected = character(0))
+    updateVarSelectInput(session, "id", data = uploaded_data(), selected = character(0))
+    updateVarSelectInput(session, "grid_ref_column", data = uploaded_data(), selected = character(0))
+    updateVarSelectInput(session, "y_coordinate", data = uploaded_data(), selected = character(0))
+    updateVarSelectInput(session, "x_coordinate", data = uploaded_data(), selected = character(0))
+    updateVarSelectInput(session, "spat_uncert", data = uploaded_data(), selected = character(0))
   })
 
   observeEvent(input$grid_ref, {
@@ -119,8 +103,8 @@ app_server <- function(input, output, session) {
 
     if(!input$grid_ref){
 
-    updateSelectInput(session, "y_coordinate", choices = colnames(uploaded_data()), selected = "")
-    updateSelectInput(session, "x_coordinate", choices = colnames(uploaded_data()), selected = "")
+    updateVarSelectInput(session, "y_coordinate", data = uploaded_data(), selected = character(0))
+    updateVarSelectInput(session, "x_coordinate", data = uploaded_data(), selected = character(0))
 
     } else{
 
@@ -135,11 +119,11 @@ app_server <- function(input, output, session) {
 
     if(input$has_year_column){
 
-      updateSelectInput(session, "year", choices = colnames(uploaded_data()), selected = "")
+      updateVarSelectInput(session, "year", data = uploaded_data(), selected = character(0))
 
     } else{
 
-      updateSelectInput(session, "date", choices = colnames(uploaded_data()), selected = "")
+      updateVarSelectInput(session, "date", data = uploaded_data(), selected = character(0))
     }
 
   })
@@ -150,32 +134,42 @@ app_server <- function(input, output, session) {
 
     if(input$has_year_column){
 
-      updateSelectInput(session, "year", choices = colnames(uploaded_data()), selected = "")
+      updateVarSelectInput(session, "year", data = uploaded_data(), selected = character(0))
 
     } else{
 
-      updateSelectInput(session, "date", choices = colnames(uploaded_data()), selected = "")
+      updateVarSelectInput(session, "date", data = uploaded_data(), selected = character(0))
     }
   })
 
-  # Grid References UI Dynamic Insertion/Removal
-  observeEvent(input$grid_ref, {
-    if (input$grid_ref) {
-      insertUI(
-        selector = "#placeholder", where = "beforeEnd",
-        ui = fluidRow(
-          id = "dynamicUI",
-          selectInput("grid_ref_column", "Grid Reference column", choices = colnames(uploaded_data())),
-          actionButton("grid_ref_convert", "Convert")
-        )
+observeEvent(input$grid_ref, {
+  if (input$grid_ref) {
+    # Insert UI
+    insertUI(
+      selector = "#placeholder", where = "beforeEnd",
+      ui = fluidRow(
+        id = "dynamicUI",
+        varSelectInput("grid_ref_column", "Grid Reference column", data = data.frame(), selected = character(0), selectize = FALSE),
+        actionButton("grid_ref_convert", "Convert")
       )
-    } else {
+    )
 
-      # Reset conversion result
-      conversion_result(NULL)
-      removeUI(selector = "#dynamicUI")
-    }
-  })
+    # Defer update slightly so UI is rendered before update call
+    shinyjs::delay(50, {
+      req(uploaded_data())
+      updateVarSelectInput(
+        session,
+        inputId = "grid_ref_column",
+        data = uploaded_data(),
+        selected = character(0)
+      )
+    })
+
+  } else {
+    conversion_result(NULL)
+    removeUI(selector = "#dynamicUI")
+  }
+})
 
   observeEvent(input$grid_ref_convert, {
     req(input$grid_ref_column)
@@ -204,24 +198,29 @@ app_server <- function(input, output, session) {
     data <- create_column_if_exists(data, "x_coordinate", uploaded_data(), input$x_coordinate)
 
     # species, identifier, and spatial uncertainty
-    browser()
     data <- create_column_if_exists(data, "species", uploaded_data(), input$species)
     data <- create_column_if_exists(data, "identifier", uploaded_data(), input$id)
     data <- create_column_if_exists(data, "spatial_uncertainty", uploaded_data(), input$spat_uncert)
 
     # year or date
     data <- create_column_if_exists(data, "year", uploaded_data(), input$year)
-    data <- create_column_if_exists(data, "year", uploaded_data(), input$date)
 
-    if(!input$has_year_column && "year" %in% colnames(data)){
+    if(!is.null(input$date) && as.character(input$date) %in% colnames(uploaded_data())){
 
-          if (input$date_format == "format_a") {
-          data$year <- year( lubridate::dmy(dates, quiet = TRUE))
-          } else if (input$date_format == "format_b") {
-          data$year <- year(lubridate::mdy(dates, quiet = TRUE))
-          } else if (input$date_format == "format_c") {
-          data$year <- year(lubridate::ymd(dates, quiet = TRUE))
-          }
+      dates = uploaded_data() %>% pull(!!sym(input$date))
+
+      if (input$date_format == "format_a") {
+      years <- year( lubridate::dmy(dates, quiet = TRUE))
+      } else if (input$date_format == "format_b") {
+      years <- year(lubridate::mdy(dates, quiet = TRUE))
+      } else if (input$date_format == "format_c") {
+      years <- year(lubridate::ymd(dates, quiet = TRUE))
+      }
+
+      if(!all(is.na(years))){
+        years_df = data.frame("year_insert" = years)
+        data <- create_column_if_exists(data, "year", years_df, "year_insert")
+      }
 
     }
 
@@ -292,22 +291,6 @@ app_server <- function(input, output, session) {
     input_tracker$grid_ref_column <- input$grid_ref_column
   })
 
-  # Reactive wrapper for input_tracker
-  user_selections <- reactive({
-    list(
-      species = input_tracker$species,
-      date = input_tracker$date,
-      date_format = input_tracker$date_format,
-      year = input_tracker$year,
-      id = input_tracker$id,
-      y_coordinate = input_tracker$y_coordinate,
-      x_coordinate = input_tracker$x_coordinate,
-      grid_ref = input_tracker$grid_ref,
-      grid_ref_convert = input_tracker$grid_ref_convert,
-      grid_ref_column = input_tracker$grid_ref_column
-    )
-  })
-
   # Are we developing locally?
   dev = FALSE
 
@@ -317,7 +300,7 @@ app_server <- function(input, output, session) {
 
   # Load modules
   mod_info_tab_server("info_tab_1")
-  mod_data_tab_server(id = "data_tab_1", user_selections = user_selections, uploaded_data = uploaded_data, reformatted_data = reformatted_data)
+  mod_data_tab_server(id = "data_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data)
   mod_time_bias_tab_server("time_bias_tab_1", reformatted_data = reformatted_data, tmp_dir = tmp_dir, dev = dev)
 
   mod_species_bias_tab_server("species_bias_tab_1", reformatted_data = reformatted_data, uploaded_data = uploaded_data, tmp_dir = tmp_dir, dev = dev)
@@ -327,6 +310,6 @@ app_server <- function(input, output, session) {
   mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow, tmp_dir = tmp_dir, dev = dev)
   mod_space_bias_tab_server("space_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow, tmp_dir = tmp_dir, dev = dev)
   
-  mod_environment_bias_tab_server("environment_bias_tab_1", reformatted_data = reformatted_data, tmp_dir = tmp_dir, dev = dev)
+  # mod_environment_bias_tab_server("environment_bias_tab_1", reformatted_data = reformatted_data, tmp_dir = tmp_dir, dev = dev)
   
 }

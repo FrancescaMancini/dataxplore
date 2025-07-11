@@ -31,8 +31,7 @@ mod_environment_bias_tab_ui <- function(id){
           helper(icon = "info-circle", colour = "black",
                   content = "breaks",
                   type = "markdown"),
-        ## please add documentation ##
-        numericInput(ns("crs"), "Enter your data CRS (note, longitude/latitude = 4326, easting/northing = 27700)", value = 27700),
+        numericInput(ns("crs"), "Please specify the CRS used in your data (note, longitude/latitude = 4326, easting/northing = 27700)", value = 27700),
         selectInput(ns("env_var_column"), "Environmental variables column", choices = NULL, selected = FALSE) %>%
           helper(icon = "info-circle", colour = "black",
                   content = "environmental_variables",

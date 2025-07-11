@@ -26,21 +26,19 @@ app_ui <- function(request) {
             div(id = "data_upload_inputs",
             checkboxInput("grid_ref", "Do you want to convert British grid references to easting and northing", FALSE),
             tags$div(id = "placeholder"),
-            selectInput("species", "Species column", choices = NULL),
+            varSelectInput("species", "Species column", data = data.frame(), selected = character(0),  selectize = FALSE),
             checkboxInput("has_year_column", "Do you have a column containing year values (as separate integers e.g., 2014, 2015...)?", FALSE),
             uiOutput("date_year_ui"),
             uiOutput("y_coordinate_x_coordinate"),
             
-            ## please add documentation ##
-            selectInput(
-              "spat_uncert", "Spatial Uncertainty column",
-              choices = NULL) %>%
+            varSelectInput(
+              "spat_uncert", "Spatial Uncertainty column", data = data.frame(), selected = character(0),  selectize = FALSE) %>%
             helper(
                 icon = "info-circle", colour = "black", 
                 content = "spatial_uncertainty",
                 type = "markdown"
             ),
-            selectInput("id", "Choose the identifier", choices = NULL)
+            varSelectInput("id", "Choose the identifier", data = data.frame(), selected = character(0),  selectize = FALSE)
             )
           ),
           mainPanel(

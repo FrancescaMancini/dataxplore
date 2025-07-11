@@ -217,9 +217,17 @@ sp_df <- eventReactive(input$plot_button, {
         # Apply the scale_fill_manual to each plot
         spat_cov = lapply(spat_cov, function(identifier_p){
 
-          identifier_p = identifier_p + scale_fill_gradient(na.value = "white", low = "white", high = "blue") +
-          coord_equal()
-        })
+          identifier_p = identifier_p +
+          coord_equal() +
+          theme(
+            axis.title.x = element_blank(),
+            axis.text.x  = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.title.y = element_blank(),
+            axis.text.y  = element_blank(),
+            axis.ticks.y = element_blank()
+          )
+      })
 
         } else {
           
@@ -241,7 +249,7 @@ sp_df <- eventReactive(input$plot_button, {
             spatialUncertainty = "spatial_uncertainty",
             maxSpatUncertainty = input$max_spat_uncert,
             identifier = "identifier",
-            output = "nPeriods",
+            output = input$output,
             minPeriod = input$min_periods
           )
 
@@ -250,16 +258,17 @@ sp_df <- eventReactive(input$plot_button, {
         # Apply the scale_fill_manual to each plot
         spat_cov = lapply(spat_cov, function(identifier_p){
 
-          identifier_p = identifier_p +
-          
-          coord_equal()+
-          scale_fill_brewer(type = "qual") +
-          theme(axis.title.x=element_blank(),
-          axis.text.x=element_blank(),
-          axis.ticks.x=element_blank(),
-          axis.title.y=element_blank(),
-          axis.text.y=element_blank(),
-          axis.ticks.y=element_blank())
+          identifier_p <- identifier_p +
+            scale_fill_manual(values = "blue", na.value = "white") +
+            coord_equal() +
+            theme(
+              axis.title.x = element_blank(),
+              axis.text.x  = element_blank(),
+              axis.ticks.x = element_blank(),
+              axis.title.y = element_blank(),
+              axis.text.y  = element_blank(),
+              axis.ticks.y = element_blank()
+            )
         })
 
           } else{

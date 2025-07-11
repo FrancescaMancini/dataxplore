@@ -1,5 +1,3 @@
 # Maximum spatial uncertainty field
 
-## please add documentation ##
-
 The maximum permitted spatial uncertainty. All records more uncertain than this value will be dropped. This allows users to ask the question “how do the biases in my data change if I retain only the more precise records?”. Units must match the units in your data, so if x and y coordinate are easting and northing, Spatial Uncertainty is in meters and Maximum Spatial Uncertainty also needs to be specified in meters.
