@@ -231,19 +231,33 @@ output$export_report <- downloadHandler(
       write.csv(variable_descriptions, file.path(tmp_export_dir, "variable_descriptions.csv"), row.names = FALSE)
 
       incProgress(0.6, detail = "Rendering RMarkdown report...")
-      rmarkdown::render(
-        input = get_markdown_path("mod_environment_bias_tab_report.Rmd", dev = dev),
-        output_file = "environment_bias_report.html",
-        output_dir = tmp_export_dir,
-        params = list(
-          periods = periods,
-          n_breaks = input$n_breaks,
-          env_var_column = input$env_var_column,
-          crs = input$crs
-        ),
-        knit_root_dir = tmp_dir,
-        envir = new.env(parent = globalenv())
-      )
+  
+  result <- tryCatch({
+    rmarkdown::render(
+      input = get_markdown_path("mod_environment_bias_tab_report.Rmd", dev = dev),
+      output_file = "environment_bias_report.html",
+      output_dir = tmp_export_dir,
+      params = list(
+        periods = periods,
+        n_breaks = input$n_breaks,
+        env_var_column = input$env_var_column,
+        crs = input$crs
+      ),
+      knit_root_dir = tmp_dir,
+      envir = new.env(parent = globalenv())
+    )
+  }, error = function(e) {
+    # Print full error object to server log
+    print(e)                # Shows full error with class
+
+    # Write error details to a log file (optional)
+    dump_file <- file.path(tmp_export_dir, "render_error.rds")
+    saveRDS(e, dump_file)
+
+    showNotification("Report generation failed. Check logs for details.", type = "error")
+    return(NULL)
+  })
+
 
       incProgress(0.9, detail = "Zipping output...")
       zip::zipr(zipfile = file, files = list.files(tmp_export_dir, full.names = TRUE), root = tmp_export_dir)

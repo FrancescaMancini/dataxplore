@@ -284,7 +284,7 @@ sp_df <- eventReactive(input$plot_button, {
         incProgress(0.8, detail = "Finalizing plot...")
 
         # Then arrange them
-        plot <- do.call(ggpubr::ggarrange, spat_cov)
+        plot <- do.call(ggpubr::ggarrange, c(spat_cov, ncol = 1))
 
         incProgress(1, detail = "Plot ready!")
         

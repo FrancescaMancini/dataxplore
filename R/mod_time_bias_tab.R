@@ -35,7 +35,7 @@ mod_time_bias_tab_ui <- function(id) {
           type = "markdown"),
         uiOutput(ns("numUI")),
         uiOutput(ns("dateRangesUI")),
-        selectInput(ns("norm"), "Normalize", choices = c("yes", "no"), selected = "yes") %>%
+        selectInput(ns("norm"), "Normalize", choices = c("Yes", "No"), selected = "Yes") %>%
           helper(icon = "info-circle", colour = "black", 
                   content = "normalize",
                   type = "markdown"),

@@ -187,6 +187,9 @@ app_server <- function(input, output, session) {
         )
       )
     } else {
+
+      # Reset conversion result
+      conversion_result(NULL)
       removeUI(selector = "#dynamicUI")
     }
   })
