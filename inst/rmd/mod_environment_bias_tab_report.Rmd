@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(patchwork)
+library(sf)
 
 # install remotes to install occAssess
 if(!require(remotes)){

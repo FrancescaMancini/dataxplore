@@ -380,7 +380,11 @@ output$export_report <- downloadHandler(
     )
 
     # Zip the export folder
-    zip::zipr(zipfile = file, files = list.files(tmp_export_dir, full.names = TRUE), root = tmp_export_dir)
+    zip::zipr(
+      zipfile = file,
+      files = list.files(tmp_export_dir, full.names = TRUE),
+      root = tmp_export_dir
+      )
 
     # Clean up
     unlink(tmp_export_dir, recursive = TRUE, force = TRUE)

@@ -310,6 +310,6 @@ observeEvent(input$grid_ref, {
   mod_space_cov_tab_server("space_cov_tab_1", reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow, tmp_dir = tmp_dir, dev = dev)
   mod_space_bias_tab_server("space_bias_tab_1", uploaded_data = uploaded_data, reformatted_data = reformatted_data, iso_2_country_names = iso_2_country_names, countriesLow = countriesLow, tmp_dir = tmp_dir, dev = dev)
   
-  # mod_environment_bias_tab_server("environment_bias_tab_1", reformatted_data = reformatted_data, tmp_dir = tmp_dir, dev = dev)
+  mod_environment_bias_tab_server("environment_bias_tab_1", reformatted_data = reformatted_data, tmp_dir = tmp_dir, dev = dev)
   
 }
