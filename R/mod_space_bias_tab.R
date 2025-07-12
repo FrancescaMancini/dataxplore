@@ -60,7 +60,8 @@ mod_space_bias_tab_ui <- function(id) {
           ),
 
         actionButton(ns("plot_button"), "Plot"),
-        downloadButton(ns("export_report"), "Export Report")
+        actionButton(ns("generate_export"), "Generate Export"),
+        downloadButton(ns("download_export"), "Download Export")
       )),
 
       mainPanel(
@@ -186,100 +187,107 @@ mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2
       plot_data()$plot
     })
 
-    # Report export
-    output$export_report <- downloadHandler(
+    report_path <- reactiveVal(NULL)
+
+    observeEvent(input$generate_export, {
+      withProgress(message = "Generating export...", value = 0, {
+        req(reformatted_data(), input$nSamps)
+
+        incProgress(0.1, detail = "Defining time periods...")
+        periods <- if (input$periodtype == "ranges") {
+          ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+          year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+          lapply(year_ranges, function(range) seq(range[1], range[2]))
+        } else {
+          sort(unique(reformatted_data()$year))
+        }
+
+        incProgress(0.3, detail = "Saving input datasets...")
+        export_dir <- file.path(tmp_dir, "export")
+        dir.create(export_dir, recursive = TRUE)
+        # Save the dataset
+        write.csv(reformatted_data(), file.path(export_dir, "your_formatted_data.csv"))
+
+        shapefile_uploaded <- !is.null(input$shapefile)
+        if (shapefile_uploaded && !is.null(sp_df())) {
+          shapefile_dir <- file.path(export_dir, "user_shapefile")
+          dir.create(shapefile_dir, showWarnings = FALSE)
+          sf_obj <- sf::st_as_sf(sp_df())
+          sf::st_write(
+            obj = sf_obj,
+            dsn = shapefile_dir,
+            layer = "region_shapefile",
+            driver = "ESRI Shapefile",
+            append = FALSE,
+            quiet = TRUE
+          )
+        } else {
+          saveRDS(countriesLow, file.path(export_dir, "countriesLow.rds"))
+        }
+
+        iso_2_selected <- iso_2_country_names %>%
+          filter(country == input$country) %>%
+          pull(iso2)
+
+        incProgress(0.6, detail = "Rendering report...")
+        tryCatch({
+
+          rmarkdown::render(
+            input = get_markdown_path("mod_space_bias_tab_report.Rmd", dev = dev),
+            output_file = "spatial_bias_report.html",
+            output_dir = export_dir,
+            params = list(
+              species = "species",
+              periods = periods,
+              x = "x_coordinate",
+              y = "y_coordinate",
+              year = "year",
+              spatialUncertainty = "spatial_uncertainty",
+              identifier = "identifier",
+              nSamps = input$nSamps,
+              shapefile_uploaded = shapefile_uploaded,
+              country = input$country,
+              country_iso2 = iso_2_selected
+            ),
+            knit_root_dir = tmp_dir,
+            envir = new.env(parent = globalenv())
+          )
+        }, error = function(e) {
+          print(e)
+          saveRDS(e, file.path(export_dir, "render_error.rds"))
+          showNotification("Report generation failed. Check logs for details.", type = "error")
+          stop("Rendering failed")
+        })
+
+        incProgress(0.9, detail = "Zipping output...")
+        zip_path <- file.path(export_dir, paste0("spatial_bias_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip"))
+        zip::zipr(
+          zipfile = zip_path,
+          files = list.files(export_dir, recursive = TRUE),
+          root = export_dir
+        )
+
+        report_path(zip_path)
+        incProgress(1, detail = "Export ready!")
+        showNotification("Export generated successfully. Click 'Download Report' to save the file.", type = "message")
+      })
+    })
+
+    output$download_export <- downloadHandler(
       filename = function() {
-        paste0("spatial_bias_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
+        basename(report_path())
       },
       content = function(file) {
-        withProgress(message = "Generating report...", value = 0, {
-          req(reformatted_data(), input$nSamps)
+        if (is.null(report_path()) || !file.exists(report_path())) {
+          showNotification("Please click 'Generate Export' before downloading.", type = "error")
+          stop("No export available.")
+        }
 
-          incProgress(0.1, detail = "Defining time periods...")
-          periods <- if (input$periodtype == "ranges") {
-            ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-            year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-            lapply(year_ranges, function(range) seq(range[1], range[2]))
-          } else {
-            sort(unique(reformatted_data()$year))
-          }
+        file.copy(report_path(), file)
 
-          incProgress(0.3, detail = "Saving input datasets...")
-          tmp_export_dir <- file.path(tmp_dir, "export")
-          dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
-          write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
-
-          shapefile_uploaded <- !is.null(input$shapefile)
-
-          warning(1)
-          if (shapefile_uploaded && !is.null(sp_df())) {
-
-          warning(2)
-            shapefile_dir <- file.path(tmp_export_dir, "user_shapefile")
-            dir.create(shapefile_dir, showWarnings = FALSE)
-            sf_obj <- sf::st_as_sf(sp_df())
-            sf::st_write(
-              obj = sf_obj,
-              dsn = shapefile_dir,
-              layer = "region_shapefile",
-              driver = "ESRI Shapefile",
-              append = FALSE,
-              quiet = TRUE
-            )
-          } else {
-            saveRDS(countriesLow, file.path(tmp_export_dir, "countriesLow.rds"))
-          }
-
-          warning(3)
-
-          iso_2_selected <- iso_2_country_names %>% filter(country == input$country) %>% pull(iso2)
-
-          incProgress(0.6, detail = "Rendering RMarkdown report...")
-          tryCatch({
-
-          warning(4)
-            rmarkdown::render(
-              input = get_markdown_path("mod_space_bias_tab_report.Rmd", dev = dev),
-              output_file = "spatial_bias_report.html",
-              output_dir = tmp_export_dir,
-              params = list(
-                species = "species",
-                periods = periods,
-                x = "x_coordinate",
-                y = "y_coordinate",
-                year = "year",
-                spatialUncertainty = "spatial_uncertainty",
-                identifier = "identifier",
-                nSamps = input$nSamps,
-                shapefile_uploaded = shapefile_uploaded,
-                country = input$country,
-                country_iso2 = iso_2_selected
-              ),
-              knit_root_dir = tmp_dir,
-              envir = new.env(parent = globalenv())
-            )
-          
-          warning(5)
-
-          }, error = function(e) {
-            print(e)
-            saveRDS(e, file.path(tmp_export_dir, "render_error.rds"))
-            showNotification("Report generation failed. Check logs for details.", type = "error")
-            stop("Rendering failed")
-          })
-
-          warning("Post-render files:\n", paste(list.files(tmp_export_dir, recursive = TRUE), collapse = "\n"))
-
-          incProgress(0.9, detail = "Zipping output...")
-          zip::zipr(
-            zipfile = file,
-            files = list.files(tmp_export_dir, recursive = TRUE),
-            root = tmp_export_dir
-          )
-
-          incProgress(1, detail = "Cleaning up...")
-          unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
-        })
+        # Clean up both zip and export directory
+        unlink(report_path(), force = TRUE)
+        unlink(dirname(report_path()), recursive = TRUE, force = TRUE)
       }
     )
   })
