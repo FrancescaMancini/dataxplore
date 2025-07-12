@@ -76,148 +76,108 @@ mod_space_bias_tab_ui <- function(id) {
 #' space_bias_tab Server Functions
 #'
 #' @noRd
-mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2_country_names, countriesLow, tmp_dir = tmp_dir, dev){
-  moduleServer(id, function(input, output, session){
+mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2_country_names, countriesLow, tmp_dir = tmp_dir, dev) {
+  moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     output$numUI <- renderUI({
       req(input$periodtype == "ranges")
-      numericInput(
-        ns("num"), "Time periods",
-        value = 1, min = 1, max = Inf
-      )
+      numericInput(ns("num"), "Time periods", value = 1, min = 1)
     })
 
     output$dateRangesUI <- renderUI({
-      req(input$periodtype == "ranges")
-      req(input$num)
+      req(input$periodtype == "ranges", input$num)
 
-      min_year <- reformatted_data() %>%
-        summarise(min_year = min(year, na.rm = TRUE)) %>%
-        pull(min_year)
-      max_year <- reformatted_data() %>%
-        summarise(max_year = max(year, na.rm = TRUE)) %>%
-        pull(max_year)
+      min_year <- reformatted_data() %>% summarise(min_year = min(year, na.rm = TRUE)) %>% pull(min_year)
+      max_year <- reformatted_data() %>% summarise(max_year = max(year, na.rm = TRUE)) %>% pull(max_year)
 
-      dateRanges <- lapply(1:input$num, function(i) {
-        numericRangeInput(ns(paste0("dates_", i)),
-          label = paste("Year range", i),
-          value = c(min_year, max_year)
-        )
-      })
-      tagList(dateRanges)
+      tagList(lapply(1:input$num, function(i) {
+        numericRangeInput(ns(paste0("dates_", i)), label = paste("Year range", i), value = c(min_year, max_year))
+      }))
     })
 
     observe({
       updateSelectInput(session, "country", choices = iso_2_country_names$country)
     })
 
-  sp_df <- reactive({
-    # Prioritise uploaded shapefile
-    if (!is.null(input$shapefile)) {
-      tempdirname <- dirname(input$shapefile$datapath[1])
+    # Create spatial mask input from uploaded shapefile or selected country
+    sp_df <- reactive({
+      if (!is.null(input$shapefile)) {
+        tempdirname <- dirname(input$shapefile$datapath[1])
 
-      # Rename all files to restore correct names
-      for (i in 1:nrow(input$shapefile)) {
-        file.rename(
-          input$shapefile$datapath[i],
-          file.path(tempdirname, input$shapefile$name[i])
-        )
-      }
+        # Restore original filenames
+        for (i in 1:nrow(input$shapefile)) {
+          file.rename(input$shapefile$datapath[i], file.path(tempdirname, input$shapefile$name[i]))
+        }
 
-      # Identify .shp file from the uploaded set
-      shp_path <- file.path(
-        tempdirname,
-        input$shapefile$name[grep("\\.shp$", input$shapefile$name)]
-      )
+        shp_path <- file.path(tempdirname, input$shapefile$name[grep("\\.shp$", input$shapefile$name)])
+        if (length(shp_path) == 0 || !file.exists(shp_path)) {
+          warning("No .shp file found in uploaded files.")
+          return(NULL)
+        }
 
-      # Catch errors when reading shapefile
-      if (length(shp_path) == 0 || !file.exists(shp_path)) {
-        warning("No .shp file found among uploaded shapefiles")
+        tryCatch({
+          shape_input <- sf::st_read(shp_path, quiet = TRUE)
+          as(shape_input, "Spatial")
+        }, error = function(e) {
+          warning("Failed to read shapefile: ", conditionMessage(e))
+          return(NULL)
+        })
+      } else if (!is.null(input$country) && input$country != "") {
+        iso_2_selected <- iso_2_country_names %>% filter(country == input$country) %>% pull(iso2)
+        if (length(iso_2_selected) == 0) return(NULL)
+        country_shape <- countriesLow[countriesLow$ISO_A2 == iso_2_selected, ]
+        if (nrow(country_shape) == 0) return(NULL)
+        return(country_shape)
+      } else {
         return(NULL)
       }
+    })
 
-      # Read the shapefile and convert to Spatial
-      tryCatch({
-        shape_input <- sf::st_read(shp_path, quiet = TRUE)
-        shape_sp <- as(shape_input, "Spatial")
-        return(shape_sp)
-      }, error = function(e) {
-        warning("Failed to read shapefile: ", conditionMessage(e))
-        return(NULL)
-      })
-
-    # Otherwise fall back to country selection
-    } else if (!is.null(input$country) && input$country != "") {
-      iso_2_selected <- iso_2_country_names %>%
-        filter(country == input$country) %>%
-        pull(iso2)
-
-      if (length(iso_2_selected) == 0) return(NULL)
-
-      country_shape <- countriesLow[countriesLow$ISO_A2 == iso_2_selected, ]
-
-      if (nrow(country_shape) == 0) return(NULL)
-
-      return(country_shape)
-
-    } else {
-      return(NULL)
-    }
-  })
-
-
+    # Plot generation
     plot_data <- eventReactive(input$plot_button, {
       withProgress(message = 'Generating plot...', value = 0, {
         req(reformatted_data(), input$nSamps, sp_df())
 
         incProgress(0.2, detail = "Cleaning data...")
-        cleaned_data <- reformatted_data() %>%
-          filter(!is.na(year))
-
-        num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
-        if (num_filtered > 0) {
-          showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
+        cleaned_data <- reformatted_data() %>% filter(!is.na(year))
+        if ((nrow(reformatted_data()) - nrow(cleaned_data)) > 0) {
+          showNotification("Some rows with missing year were removed.", type = "warning")
         }
 
         incProgress(0.4, detail = "Processing time periods...")
-        if (input$periodtype == "ranges") {
+        periods <- if (input$periodtype == "ranges") {
           ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
           year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-          periods <- lapply(year_ranges, function(range) {
-            from <- range[1]
-            to <- range[2]
-            return(seq(from = from, to = to))
-          })
+          lapply(year_ranges, function(range) seq(range[1], range[2]))
         } else {
-          periods <- sort(unique(cleaned_data$year))
+          sort(unique(cleaned_data$year))
         }
 
         incProgress(0.6, detail = "Creating raster mask...")
-        mask <- rasterize(sp_df(),
-                          raster(nrow = 1000, ncol = 1000, extent(sp_df())))
+        mask <- raster::rasterize(sp_df(), raster::raster(nrow = 1000, ncol = 1000, raster::extent(sp_df())))
 
         incProgress(0.8, detail = "Calculating spatial bias...")
-
-        if (!("spatial_uncertainty" %in% names(cleaned_data))){
-          showNotification(paste("This function requires the recording of spatial uncertainty in each entry"), type = "warning")
-          stop("Cancelling plot generation - see warning")
+        if (!("spatial_uncertainty" %in% names(cleaned_data))) {
+          showNotification("Spatial uncertainty column is missing.", type = "error")
+          stop("Missing 'spatial_uncertainty' column.")
         }
 
-        plot <- assessSpatialBias(dat = cleaned_data,
-                                  periods = periods,
-                                  mask = mask,
-                                  nSamps = input$nSamps,
-                                  degrade = TRUE,
-                                  species = "species",
-                                  x = "x_coordinate",
-                                  y = "y_coordinate",
-                                  year = "year",
-                                  spatialUncertainty = "spatial_uncertainty",
-                                  identifier = "identifier")$plot
+        plot <- assessSpatialBias(
+          dat = cleaned_data,
+          periods = periods,
+          mask = mask,
+          nSamps = input$nSamps,
+          degrade = TRUE,
+          species = "species",
+          x = "x_coordinate",
+          y = "y_coordinate",
+          year = "year",
+          spatialUncertainty = "spatial_uncertainty",
+          identifier = "identifier"
+        )$plot
 
-        incProgress(1, detail = "Finalizing plot...")
-
+        incProgress(1, detail = "Finalising plot...")
         list(plot = plot)
       })
     })
@@ -226,127 +186,101 @@ mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2
       plot_data()$plot
     })
 
-  output$export_report <- downloadHandler(
-    filename = function() {
-      paste0("spatial_bias_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
-    },
-    content = function(file) {
-      withProgress(message = "Generating report...", value = 0, {
-        # req(reformatted_data(), input$nSamps, sp_df())
+    # Report export
+    output$export_report <- downloadHandler(
+      filename = function() {
+        paste0("spatial_bias_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
+      },
+      content = function(file) {
+        withProgress(message = "Generating report...", value = 0, {
+          req(reformatted_data(), input$nSamps)
 
-        browser()
+          incProgress(0.1, detail = "Defining time periods...")
+          periods <- if (input$periodtype == "ranges") {
+            ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+            year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+            lapply(year_ranges, function(range) seq(range[1], range[2]))
+          } else {
+            sort(unique(reformatted_data()$year))
+          }
 
-        warning(1)
+          incProgress(0.3, detail = "Saving input datasets...")
+          tmp_export_dir <- file.path(tmp_dir, "export")
+          dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
+          write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
 
-        incProgress(0.1, detail = "Defining time periods...")
-        # Time periods
-        if (input$periodtype == "ranges") {
-          ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-          year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-          periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
-        } else {
-          periods <- sort(unique(reformatted_data()$year))
-        }
+          shapefile_uploaded <- !is.null(input$shapefile)
 
-        warning(2)
+          warning(1)
+          if (shapefile_uploaded && !is.null(sp_df())) {
 
-        incProgress(0.3, detail = "Saving input datasets...")
-        # Export folder
-        tmp_export_dir <- file.path(tmp_dir, "export")
-        dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
+          warning(2)
+            shapefile_dir <- file.path(tmp_export_dir, "user_shapefile")
+            dir.create(shapefile_dir, showWarnings = FALSE)
+            sf_obj <- sf::st_as_sf(sp_df())
+            sf::st_write(
+              obj = sf_obj,
+              dsn = shapefile_dir,
+              layer = "region_shapefile",
+              driver = "ESRI Shapefile",
+              append = FALSE,
+              quiet = TRUE
+            )
+          } else {
+            saveRDS(countriesLow, file.path(tmp_export_dir, "countriesLow.rds"))
+          }
 
-        warning(3)
+          warning(3)
 
-        # Save reformatted data
-        write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
+          iso_2_selected <- iso_2_country_names %>% filter(country == input$country) %>% pull(iso2)
 
-        warning("3a")
+          incProgress(0.6, detail = "Rendering RMarkdown report...")
+          tryCatch({
 
-        shapefile_uploaded <- !is.null(input$shapefile)
+          warning(4)
+            rmarkdown::render(
+              input = get_markdown_path("mod_space_bias_tab_report.Rmd", dev = dev),
+              output_file = "spatial_bias_report.html",
+              output_dir = tmp_export_dir,
+              params = list(
+                species = "species",
+                periods = periods,
+                x = "x_coordinate",
+                y = "y_coordinate",
+                year = "year",
+                spatialUncertainty = "spatial_uncertainty",
+                identifier = "identifier",
+                nSamps = input$nSamps,
+                shapefile_uploaded = shapefile_uploaded,
+                country = input$country,
+                country_iso2 = iso_2_selected
+              ),
+              knit_root_dir = tmp_dir,
+              envir = new.env(parent = globalenv())
+            )
+          
+          warning(5)
 
-        warning("3b")
+          }, error = function(e) {
+            print(e)
+            saveRDS(e, file.path(tmp_export_dir, "render_error.rds"))
+            showNotification("Report generation failed. Check logs for details.", type = "error")
+            stop("Rendering failed")
+          })
 
-        # Save region shapefile from sp_df()
-        if (shapefile_uploaded && !is.null(sp_df())) {
-          shapefile_dir <- file.path(tmp_export_dir, "user_shapefile")
-          dir.create(shapefile_dir, showWarnings = FALSE)
+          warning("Post-render files:\n", paste(list.files(tmp_export_dir, recursive = TRUE), collapse = "\n"))
 
-          warning("3c")
-
-          sf_obj <- sf::st_as_sf(sp_df())  # Convert sp to sf
-          sf::st_write(
-            obj = sf_obj,
-            dsn = shapefile_dir,
-            layer = "region_shapefile",  # Base name of output files
-            driver = "ESRI Shapefile",
-            append = FALSE,
-            quiet = TRUE
+          incProgress(0.9, detail = "Zipping output...")
+          zip::zipr(
+            zipfile = file,
+            files = list.files(tmp_export_dir, recursive = TRUE),
+            root = tmp_export_dir
           )
 
-          warning("3d")
-        } else {
-          saveRDS(countriesLow, file.path(tmp_export_dir, "countriesLow.rds"))
-        }
-
-        warning(4)
-
-        iso_2_selected <- iso_2_country_names %>%
-          filter(country == input$country) %>%
-          pull(iso2)
-
-        warning(5)
-
-        warning("Files in export folder:\n", paste(list.files(tmp_export_dir, recursive = TRUE), collapse = "\n"))
-
-        incProgress(0.6, detail = "Rendering RMarkdown report...")
-        result <- tryCatch({
-          2+2
-          rmarkdown::render(
-            input = get_markdown_path("mod_space_bias_tab_report.Rmd", dev = dev),
-            output_file = "spatial_bias_report.html",
-            output_dir = tmp_export_dir,
-            params = list(
-              species = "species",
-              periods = periods,
-              x = "x_coordinate",
-              y = "y_coordinate",
-              year = "year",
-              spatialUncertainty = "spatial_uncertainty",
-              identifier = "identifier",
-              nSamps = input$nSamps,
-              shapefile_uploaded = shapefile_uploaded,
-              country = input$country,
-              country_iso2 = iso_2_selected
-            ),
-            knit_root_dir = tmp_dir,
-            envir = new.env(parent = globalenv())
-          )
-
-        warning(6)
-        }, error = function(e) {
-          print(e)
-          dump_file <- file.path(tmp_export_dir, "render_error.rds")
-          saveRDS(e, dump_file)
-          showNotification("Report generation failed. Check logs for details.", type = "error")
-          return(NULL)
+          incProgress(1, detail = "Cleaning up...")
+          unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
         })
-
-        warning("Files in export folder:\n", paste(list.files(tmp_export_dir, recursive = TRUE), collapse = "\n"))
-
-
-        incProgress(0.9, detail = "Zipping output...")
-        zip::zipr(
-          zipfile = file,
-          files = list.files(tmp_export_dir, recursive = TRUE, full.names = TRUE),
-          root = tmp_export_dir
-        )
-
-        incProgress(1, detail = "Cleaning up...")
-        unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
-      })
-    }
-  )
-
+      }
+    )
   })
-
 }

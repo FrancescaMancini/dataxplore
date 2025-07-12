@@ -76,169 +76,106 @@ mod_space_cov_tab_ui <- function(id){
 #' 
 #' 
 #' @noRd
-mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, countriesLow, tmp_dir, dev){
-  moduleServer(id, function(input, output, session){
+mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, countriesLow, tmp_dir, dev) {
+  moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     output$numUI <- renderUI({
       req(input$periodtype == "ranges")
-      numericInput(
-        ns("num"), "Time periods",
-        value = 1, min = 1, max = Inf
-      )
+      numericInput(ns("num"), "Time periods", value = 1, min = 1)
     })
 
     output$dateRangesUI <- renderUI({
       req(input$periodtype == "ranges", input$num)
 
-      min_year <- reformatted_data() %>%
-        summarise(min_year = min(year, na.rm = TRUE)) %>%
-        pull(min_year)
-      max_year <- reformatted_data() %>%
-        summarise(max_year = max(year, na.rm = TRUE)) %>%
-        pull(max_year)
+      min_year <- reformatted_data() %>% summarise(min_year = min(year, na.rm = TRUE)) %>% pull(min_year)
+      max_year <- reformatted_data() %>% summarise(max_year = max(year, na.rm = TRUE)) %>% pull(max_year)
 
-      dateRanges <- lapply(1:input$num, function(i) {
-        numericRangeInput(ns(paste0("dates_", i)),
-          label = paste("Year range", i),
-          value = c(min_year, max_year)
-        )
-      })
-      tagList(dateRanges)
+      tagList(lapply(1:input$num, function(i) {
+        numericRangeInput(ns(paste0("dates_", i)), label = paste("Year range", i), value = c(min_year, max_year))
+      }))
     })
 
     observe({
-        updateSelectInput(session, "country", choices = iso_2_country_names$country)
+      updateSelectInput(session, "country", choices = iso_2_country_names$country)
     })
 
-sp_df <- eventReactive(input$plot_button, {
-    if (!is.null(input$shapefile)) {
-        withProgress(message = "Loading shapefile...", value = 0, {
-            tempdirname <- dirname(input$shapefile$datapath[1])
-            
-            # Rename files to maintain the correct format
-            for (i in 1:nrow(input$shapefile)) {
-                file.rename(
-                    input$shapefile$datapath[i],
-                    paste0(tempdirname, "/", input$shapefile$name[i])
-                )
-            }
-            
-            incProgress(0.5, detail = "Reading shapefile...")
-            
-            # Read shapefile using `sf`
-            shape_input <- sf::st_read(paste(
-                tempdirname,
-                input$shapefile$name[grep(pattern = "*.shp$", input$shapefile$name)],
-                sep = "/"
-            ))
+    # Create spatial object from shapefile or country
+    sp_df <- reactive({
+      if (!is.null(input$shapefile)) {
+        tempdirname <- dirname(input$shapefile$datapath[1])
+        for (i in 1:nrow(input$shapefile)) {
+          file.rename(input$shapefile$datapath[i], file.path(tempdirname, input$shapefile$name[i]))
+        }
 
-            incProgress(0.8, detail = "Converting to Spatial format...")
+        shp_path <- file.path(tempdirname, input$shapefile$name[grep("\\.shp$", input$shapefile$name)])
+        if (length(shp_path) == 0 || !file.exists(shp_path)) return(NULL)
 
-            # Convert to sp object
-            shape_sp <- as(shape_input, "Spatial")
-
-            incProgress(1, detail = "Done")
-            
-            return(shape_sp)
+        tryCatch({
+          shape_input <- sf::st_read(shp_path, quiet = TRUE)
+          as(shape_input, "Spatial")
+        }, error = function(e) {
+          warning("Failed to read shapefile: ", conditionMessage(e))
+          return(NULL)
         })
-    } else if (!is.null(input$country) && input$country != "") {
 
-        # If the user selects a country from the dropdown
-        iso_2_selected <- iso_2_country_names %>%
-            filter(country == input$country) %>%
-            pull(iso2)
-        
+      } else if (!is.null(input$country) && input$country != "") {
+        iso_2_selected <- iso_2_country_names %>% filter(country == input$country) %>% pull(iso2)
         if (length(iso_2_selected) == 0) return(NULL)
-        
         country_shape <- countriesLow[countriesLow$ISO_A2 == iso_2_selected, ]
-        
         if (nrow(country_shape) == 0) return(NULL)
-
-        # # Reproject to British National Grid
-        # country_shape <- spTransform(
-        #     country_shape,
-        #     CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs")
-        # )
-        
         return(country_shape)
-    } else {
+      } else {
         return(NULL)
-    }
-})
+      }
+    })
 
     plot_data <- eventReactive(input$plot_button, {
-
       withProgress(message = 'Generating plot...', value = 0, {
         req(input$res, input$output, sp_df())
 
         incProgress(0.2, detail = "Cleaning data...")
-        cleaned_data <- reformatted_data() %>%
-          filter(!is.na(year))
-        
-        num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
-        if (num_filtered > 0) {
-          showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
+        cleaned_data <- reformatted_data() %>% filter(!is.na(year))
+        if ((nrow(reformatted_data()) - nrow(cleaned_data)) > 0) {
+          showNotification("Some rows with missing year were removed.", type = "warning")
         }
 
         incProgress(0.4, detail = "Processing time periods...")
-        if (input$periodtype == "ranges") {
+        periods <- if (input$periodtype == "ranges") {
           ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
           year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-          periods <- lapply(year_ranges, function(range) {
-            from <- range[1]
-            to <- range[2]
-            return(seq(from = from, to = to))
-          })
+          lapply(year_ranges, function(range) seq(range[1], range[2]))
         } else {
-          periods <- sort(unique(cleaned_data$year))
+          sort(unique(cleaned_data$year))
         }
 
         incProgress(0.6, detail = "Calculating spatial coverage...")
 
-        if (input$output == "density"){
-
+        if (input$output == "density") {
           spat_cov <- assessSpatialCov(
-          dat = cleaned_data,
-          periods = periods,
-          res = input$res,
-          logCount = input$log,
-          shp = sp_df(),
-          species = "species",
-          x = "x_coordinate",
-          y = "y_coordinate",
-          year = "year",
-          spatialUncertainty = NULL,
-          maxSpatUncertainty = NULL,
-          identifier = "identifier",
-          output = input$output
-        )
-
-        # Apply the scale_fill_manual to each plot
-        spat_cov = lapply(spat_cov, function(identifier_p){
-
-          identifier_p = identifier_p +
-          coord_equal() +
-          theme(
-            axis.title.x = element_blank(),
-            axis.text.x  = element_blank(),
-            axis.ticks.x = element_blank(),
-            axis.title.y = element_blank(),
-            axis.text.y  = element_blank(),
-            axis.ticks.y = element_blank()
+            dat = cleaned_data,
+            periods = periods,
+            res = input$res,
+            logCount = input$log,
+            shp = sp_df(),
+            species = "species",
+            x = "x_coordinate",
+            y = "y_coordinate",
+            year = "year",
+            spatialUncertainty = NULL,
+            maxSpatUncertainty = NULL,
+            identifier = "identifier",
+            output = input$output
           )
-      })
-
         } else {
-          
-          if (!("spatial_uncertainty" %in% names(cleaned_data))){
-            showNotification(paste("This function requires the recording of spatial uncertainty in each entry"), type = "warning")
-            stop("Cancelling plot generation - see warning")
+          if (!("spatial_uncertainty" %in% names(cleaned_data))) {
+            showNotification("Spatial uncertainty column is missing.", type = "error")
+            stop("Missing 'spatial_uncertainty' column.")
           }
 
           spat_cov <- assessSpatialCov(
             dat = cleaned_data,
-            periods = as.list(periods),
+            periods = periods,
             res = input$res,
             logCount = input$log,
             shp = sp_df(),
@@ -252,51 +189,19 @@ sp_df <- eventReactive(input$plot_button, {
             output = input$output,
             minPeriod = input$min_periods
           )
-
-          if (input$output == "overlap"){
-
-        # Apply the scale_fill_manual to each plot
-        spat_cov = lapply(spat_cov, function(identifier_p){
-
-          identifier_p <- identifier_p +
-            scale_fill_manual(values = "blue", na.value = "white") +
-            coord_equal() +
-            theme(
-              axis.title.x = element_blank(),
-              axis.text.x  = element_blank(),
-              axis.ticks.x = element_blank(),
-              axis.title.y = element_blank(),
-              axis.text.y  = element_blank(),
-              axis.ticks.y = element_blank()
-            )
-        })
-
-          } else{
-
-        # Apply the scale_fill_manual to each plot
-        spat_cov = lapply(spat_cov, function(identifier_p){
-
-          identifier_p = identifier_p +
-          coord_equal() +
-          theme(axis.title.x=element_blank(),
-          axis.text.x=element_blank(),
-          axis.ticks.x=element_blank(),
-          axis.title.y=element_blank(),
-          axis.text.y=element_blank(),
-          axis.ticks.y=element_blank())
-        })
-
-          }
-
         }
 
+        spat_cov <- lapply(spat_cov, function(p) {
+          p + coord_equal() +
+            theme(axis.title = element_blank(),
+                  axis.text = element_blank(),
+                  axis.ticks = element_blank()) +
+            if (input$output == "overlap") scale_fill_manual(values = "blue", na.value = "white") else NULL
+        })
+
         incProgress(0.8, detail = "Finalizing plot...")
-
-        # Then arrange them
         plot <- do.call(ggpubr::ggarrange, c(spat_cov, ncol = 1))
-
         incProgress(1, detail = "Plot ready!")
-        
         list(plot = plot)
       })
     })
@@ -305,91 +210,91 @@ sp_df <- eventReactive(input$plot_button, {
       plot_data()$plot
     })
 
-output$export_report <- downloadHandler(
-  filename = function() {
-    paste0("spatial_coverage_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
-  },
-  content = function(file) {
-    req(reformatted_data(), input$res, input$output)
+    output$export_report <- downloadHandler(
+      filename = function() {
+        paste0("spatial_coverage_export_", format(Sys.Date(), "%Y_%m_%d"), ".zip")
+      },
+      content = function(file) {
+        withProgress(message = "Generating report...", value = 0, {
+          req(reformatted_data(), input$res, input$output)
 
-    # Time periods
-    if (input$periodtype == "ranges") {
-      ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-      year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-      periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
-    } else {
-      periods <- sort(unique(reformatted_data()$year))
-    }
+          incProgress(0.1, detail = "Preparing time periods...")
+          periods <- if (input$periodtype == "ranges") {
+            ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+            year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+            lapply(year_ranges, function(range) seq(range[1], range[2]))
+          } else {
+            sort(unique(reformatted_data()$year))
+          }
 
-    # Export folder
-    tmp_export_dir <- file.path(tmp_dir, "export")
-    dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
+          incProgress(0.3, detail = "Saving datasets...")
+          tmp_export_dir <- file.path(tmp_dir, "export")
+          dir.create(tmp_export_dir, showWarnings = FALSE, recursive = TRUE)
+          write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
 
-    # Save reformatted data
-    write.csv(reformatted_data(), file.path(tmp_export_dir, "your_formatted_data.csv"), row.names = FALSE)
+          shapefile_uploaded <- !is.null(input$shapefile)
+          if (shapefile_uploaded && !is.null(sp_df())) {
+            shapefile_dir <- file.path(tmp_export_dir, "user_shapefile")
+            dir.create(shapefile_dir, showWarnings = FALSE)
+            sf_obj <- sf::st_as_sf(sp_df())
+            sf::st_write(
+              obj = sf_obj,
+              dsn = shapefile_dir,
+              layer = "region_shapefile",
+              driver = "ESRI Shapefile",
+              append = FALSE,
+              quiet = TRUE
+            )
+          } else {
+            saveRDS(countriesLow, file.path(tmp_export_dir, "countriesLow.rds"))
+          }
 
-    shapefile_uploaded <- !is.null(input$shapefile)
+          iso_2_selected <- iso_2_country_names %>% filter(country == input$country) %>% pull(iso2)
 
-    if (shapefile_uploaded && !is.null(sp_df())) {
-      shapefile_dir <- file.path(tmp_export_dir, "user_shapefile")
-      dir.create(shapefile_dir, showWarnings = FALSE)
+          incProgress(0.6, detail = "Rendering report...")
+          tryCatch({
+            rmarkdown::render(
+              input = get_markdown_path("mod_space_cov_tab_report.Rmd", dev = dev),
+              output_file = "space_cov_report.html",
+              output_dir = tmp_export_dir,
+              params = list(
+                species = "species",
+                periods = periods,
+                x = "x_coordinate",
+                y = "y_coordinate",
+                year = "year",
+                spatialUncertainty = if (input$output == "density") NULL else "spatial_uncertainty",
+                maxSpatUncertainty = input$max_spat_uncert,
+                res = input$res,
+                logCount = input$log == "TRUE",
+                identifier = "identifier",
+                output = input$output,
+                minPeriod = input$min_periods,
+                shapefile_uploaded = shapefile_uploaded,
+                country = input$country,
+                country_iso2 = iso_2_selected
+              ),
+              knit_root_dir = tmp_dir,
+              envir = new.env(parent = globalenv())
+            )
+          }, error = function(e) {
+            print(e)
+            saveRDS(e, file.path(tmp_export_dir, "render_error.rds"))
+            showNotification("Report generation failed. Check logs for details.", type = "error")
+            stop("Rendering failed")
+          })
 
-      # Save sp_df() as shapefile using rgdal or sf
-      sf_obj <- sf::st_as_sf(sp_df())  # Convert from sp to sf if needed
+          incProgress(0.9, detail = "Zipping output...")
+          zip::zipr(
+            zipfile = file,
+            files = list.files(tmp_export_dir, recursive = TRUE),
+            root = tmp_export_dir
+          )
 
-      sf::st_write(
-        obj = sf_obj,
-        dsn = shapefile_dir,
-        layer = "region_shapefile",  # Will produce region_shapefile.shp etc.
-        driver = "ESRI Shapefile",
-        append = FALSE,
-        quiet = TRUE
-      )
-    } else{
-      saveRDS(countriesLow, file.path(tmp_export_dir, "countriesLow.rds"))
-    }
-
-    iso_2_selected <- iso_2_country_names %>%
-      filter(country == input$country) %>%
-      pull(iso2)
-
-    # Render RMarkdown
-    rmarkdown::render(
-      input = get_markdown_path("mod_space_cov_tab_report.Rmd", dev = dev),
-      output_file = "space_cov_report.html",
-      output_dir = tmp_export_dir,
-      params = list(
-        species = "species",
-        periods = periods,
-        x = "x_coordinate",
-        y = "y_coordinate",
-        year = "year",
-        spatialUncertainty = if (input$output == "density") NULL else "spatial_uncertainty",
-        maxSpatUncertainty = input$max_spat_uncert,
-        res = input$res,
-        logCount = input$log == "TRUE",
-        identifier = "identifier",
-        output = input$output,
-        minPeriod = input$min_periods,
-        shapefile_uploaded = shapefile_uploaded,
-        country = input$country,
-        country_iso2 = iso_2_selected
-      ),
-      knit_root_dir = tmp_dir,
-      envir = new.env(parent = globalenv())
+          incProgress(1, detail = "Cleaning up...")
+          unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
+        })
+      }
     )
-
-    # Zip the export folder
-    zip::zipr(
-      zipfile = file,
-      files = list.files(tmp_export_dir, full.names = TRUE),
-      root = tmp_export_dir
-      )
-
-    # Clean up
-    unlink(tmp_export_dir, recursive = TRUE, force = TRUE)
-  }
-)
-
   })
 }

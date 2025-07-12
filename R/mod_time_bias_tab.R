@@ -115,7 +115,7 @@ mod_time_bias_tab_server <- function(id, reformatted_data, tmp_dir, dev) {
         x = "x_coordinate",
         y = "y_coordinate",
         year = "year",
-        spatialUncertainty = NULL,
+        spatialUncertainty = "spatial_uncertainty",
         identifier = "identifier",
         normalize = ifelse(input$norm == "Yes", TRUE, FALSE))$plot
       list(plot = plot)
@@ -159,7 +159,7 @@ output$export_report <- downloadHandler(
         x = "x_coordinate",
         y = "y_coordinate",
         year = "year",
-        spatialUncertainty = NULL,
+        spatialUncertainty = "spatial_uncertainty",
         identifier = "identifier",
         normalize = ifelse(input$norm == "yes", TRUE, FALSE)
       ),

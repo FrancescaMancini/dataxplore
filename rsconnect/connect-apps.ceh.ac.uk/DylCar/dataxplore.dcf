@@ -5,6 +5,6 @@ account: DylCar
 server: connect-apps.ceh.ac.uk
 hostUrl: https://connect-apps.ceh.ac.uk/__api__
 appId: 422
-bundleId: 19512
+bundleId: 19514
 url: https://connect-apps.ceh.ac.uk/data-xplore/
 version: 1

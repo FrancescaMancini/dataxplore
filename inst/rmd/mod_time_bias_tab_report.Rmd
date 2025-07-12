@@ -38,7 +38,7 @@ if(!require(occAssess)){
 - **X Coordinate**: `r params$x`
 - **Y Coordinate**: `r params$y`
 - **Year**: `r params$year`
-- **Spatial Uncertainty**: `r ifelse(is.null(params$spatialUncertainty), "NULL", params$spatialUncertainty)`
+- **Spatial Uncertainty**: `r params$spatialUncertainty`
 - **Identifier**: `r params$identifier`
 - **Normalize**: `r params$normalize`
 
