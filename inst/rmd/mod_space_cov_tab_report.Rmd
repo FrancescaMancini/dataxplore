@@ -112,9 +112,33 @@ if (params$output == "density") {
 ```
 
 ```{r plot-results}
-if (is.list(result)) {
-  print(ggarrange(plotlist = result))
-} else {
-  print(result)
-}
+# Produce a list of outputs
+results_formatted <- lapply(names(result), function(name) {
+  list(
+    name = name,
+    plot = result[[name]],
+    data = ggplot_build(result[[name]])$data  # list of layer data frames
+  )
+})
+
+# Extract plots
+plots <- lapply(results_formatted, `[[`, "plot")
+
+# Extract and label layer data
+# For simplicity, combine all layers for each plot (i.e. rbind all layers per plot)
+data_list <- lapply(results_formatted, function(res) {
+  main_layer <- res$data[[1]]  # only take first layer
+  main_layer$group <- res$name
+  main_layer
+})
+
+# Combine all plot-layer data into a single dataframe
+combined_data <- dplyr::bind_rows(data_list)
+
+# Save result
+write.csv(combined_data, file = "export/spatial_coverage.csv", row.names = FALSE)
+
+# Display plots in a single vertical layout
+ggpubr::ggarrange(plotlist = plots, ncol = 1)
+
 ```

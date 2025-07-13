@@ -32,7 +32,7 @@ mod_space_bias_tab_ui <- function(id) {
         uiOutput(ns("dateRangesUI")),
 
         selectInput(
-          ns("country"), "Country", choices = NULL, selected = FALSE
+          ns("country"), "Country", choices = NULL, selected = character(0)
         ) %>%
           helper(
             icon = "info-circle", colour = "black",
@@ -98,7 +98,7 @@ mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2
     })
 
     observe({
-      updateSelectInput(session, "country", choices = iso_2_country_names$country)
+      updateSelectInput(session, "country", choices = iso_2_country_names$country, selected = character(0))
     })
 
     # Create spatial mask input from uploaded shapefile or selected country
@@ -140,32 +140,41 @@ mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2
       withProgress(message = 'Generating plot...', value = 0, {
         req(reformatted_data(), input$nSamps, sp_df())
 
-        incProgress(0.2, detail = "Cleaning data...")
-        cleaned_data <- reformatted_data() %>% filter(!is.na(year))
-        if ((nrow(reformatted_data()) - nrow(cleaned_data)) > 0) {
-          showNotification("Some rows with missing year were removed.", type = "warning")
-        }
-
         incProgress(0.4, detail = "Processing time periods...")
         periods <- if (input$periodtype == "ranges") {
           ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
           year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-          lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 1: Ensure all start <= end
+          for (i in seq_along(year_ranges)) {
+            if (year_ranges[[i]][1] > year_ranges[[i]][2]) {
+              showNotification(paste("Year range", i, "is invalid: start year is after end year."), type = "error")
+              return(NULL)
+            }
+          }
+
+          # Convert to sequences for overlap detection
+          sequences <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 2: Ensure no overlap between sequences
+          all_years <- unlist(sequences)
+          if (any(duplicated(all_years))) {
+            showNotification("Year ranges must not overlap.", type = "error")
+            return(NULL)
+          }
+
+          sequences
         } else {
-          sort(unique(cleaned_data$year))
+          sort(unique(reformatted_data()$year))
         }
 
         incProgress(0.6, detail = "Creating raster mask...")
         mask <- raster::rasterize(sp_df(), raster::raster(nrow = 1000, ncol = 1000, raster::extent(sp_df())))
 
         incProgress(0.8, detail = "Calculating spatial bias...")
-        if (!("spatial_uncertainty" %in% names(cleaned_data))) {
-          showNotification("Spatial uncertainty column is missing.", type = "error")
-          stop("Missing 'spatial_uncertainty' column.")
-        }
 
         plot <- assessSpatialBias(
-          dat = cleaned_data,
+          dat = reformatted_data(),
           periods = periods,
           mask = mask,
           nSamps = input$nSamps,
@@ -190,14 +199,34 @@ mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2
     report_path <- reactiveVal(NULL)
 
     observeEvent(input$generate_export, {
+      req(reformatted_data(), input$nSamps, sp_df())
+
       withProgress(message = "Generating export...", value = 0, {
-        req(reformatted_data(), input$nSamps)
 
         incProgress(0.1, detail = "Defining time periods...")
         periods <- if (input$periodtype == "ranges") {
           ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
           year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-          lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 1: Ensure all start <= end
+          for (i in seq_along(year_ranges)) {
+            if (year_ranges[[i]][1] > year_ranges[[i]][2]) {
+              showNotification(paste("Year range", i, "is invalid: start year is after end year."), type = "error")
+              return(NULL)
+            }
+          }
+
+          # Convert to sequences for overlap detection
+          sequences <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 2: Ensure no overlap between sequences
+          all_years <- unlist(sequences)
+          if (any(duplicated(all_years))) {
+            showNotification("Year ranges must not overlap.", type = "error")
+            return(NULL)
+          }
+
+          sequences
         } else {
           sort(unique(reformatted_data()$year))
         }
@@ -269,7 +298,7 @@ mod_space_bias_tab_server <- function(id, uploaded_data, reformatted_data, iso_2
 
         report_path(zip_path)
         incProgress(1, detail = "Export ready!")
-        showNotification("Export generated successfully. Click 'Download Report' to save the file.", type = "message")
+        showNotification("Export generated successfully. Click 'Download Export' to save the file.", type = "message")
       })
     })
 

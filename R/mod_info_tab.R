@@ -66,7 +66,7 @@ mod_info_tab_server <- function(id){
     })
 
     output$text2 <- renderUI({
-      HTML(
+    tagList(HTML(
         paste(
           "<p>There are seven tabs in dataXplore. It is recommended that users read the information in the Info tab before attempting to use the app for the first time. After reading the Info tab, the user can upload the dataset they want to screen for bias in the “Data” tab. After the dataset has been uploaded and all the required information entered in the “Data” tab, the user can open any of the other tabs in any order.</p>",
           "<p>The app accepts data in csv format and the file must contain the following fields:</p>",
@@ -77,10 +77,18 @@ mod_info_tab_server <- function(id){
           "<p>- identifier, a variable identifying groups in the data (e.g. taxonomic groups, data sources or any other group you may want to compare across). Please limit the number of identifiers to a maximum of 6, as any more would produce cluttered plots. If no groups exist just assign one group to all observations.</p>",
           "<p>Missing information in any field should be indicated by “NA”. The column names do not need to match the fields, instead the column name for each field must be specified in the “Data” tab. See the table below for an example set of input data.</p>",
           "<p>Additionally, the user should provide a shapefile of the boundaries of the survey region, and this needs to be in the same coordinate reference system as the species data. Alternatively, if the coordinates of the species data are in WGS84 and the survey region is a country, the user can use country shapefiles provided within the app. This is relevant for the 'Space' and 'Environment' tab.</p>",
-          "<p>The tabs “Time”, “Species”, “Space” and “Environment” explore common biases in these domains. Each tab has a sidebar to specify arguments required by dataXplore to compute and visualise the metrics. After entering the required inputs, the user can click on the plot button to visualise the output. Each tab has guidance on the input required and what the output shows. You can download our worked examples to see what the outputs look like for simulated data.</p>",
+          "<p>The tabs “Time”, “Species”, “Space” and “Environment” explore common biases in these domains. Each tab has a sidebar to specify arguments required by dataXplore to compute and visualise the metrics. After entering the required inputs, the user can click on the plot button to visualise the output. Each tab has guidance on the input required and what the output shows. You can download our worked examples below to see what the outputs look like for simulated data.</p>",
           "<p>At the bottom of the sidebar in each tab, the user has the option to export the code and the data behind the plots for further analysis or visualisation.</p>"
         )
+      ),
+
+      downloadButton(session$ns("download_examples"), "Download worked examples (ZIP)"),
+      
+      br(),
+      br()
+      
       )
+
     })
 
     ex_tab <- data.frame(species = c("a", "b", "c", "d"),
@@ -111,6 +119,22 @@ mod_info_tab_server <- function(id){
         )
       )
     })
+
+    output$download_examples <- downloadHandler(
+      filename = function() {
+        "worked_examples.zip"
+      },
+      content = function(file) {
+        # Location where Word docs are stored (in golem structure)
+        example_dir <- app_sys("app/www/worked_examples")
+        
+        # List all .docx files in the directory
+        example_files <- list.files(example_dir, pattern = "\\.docx$", full.names = TRUE)
+        
+        # Create a temporary zip file
+        zip::zip(zipfile = file, files = example_files, mode = "cherry-pick")
+      }
+    )
 
   })
 }

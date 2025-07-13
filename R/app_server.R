@@ -210,7 +210,7 @@ observeEvent(input$grid_ref, {
       dates = uploaded_data() %>% pull(!!sym(input$date))
 
       if (input$date_format == "format_a") {
-      years <- year( lubridate::dmy(dates, quiet = TRUE))
+      years <- year(lubridate::dmy(dates, quiet = TRUE))
       } else if (input$date_format == "format_b") {
       years <- year(lubridate::mdy(dates, quiet = TRUE))
       } else if (input$date_format == "format_c") {
@@ -220,6 +220,19 @@ observeEvent(input$grid_ref, {
       if(!all(is.na(years))){
         years_df = data.frame("year_insert" = years)
         data <- create_column_if_exists(data, "year", years_df, "year_insert")
+      }
+
+    }
+
+    if(all(c("y_coordinate", "x_coordinate", "species", "identifier", "spatial_uncertainty", "year") %in% colnames(data))){
+
+      n_nas = sum(is.na(data$year))
+
+      if(n_nas > 0){
+
+        showNotification(paste("Removing", n_nas, "rows that contain NA values in the year column"), type = "warning")
+
+        data = filter(data, !is.na(year))
       }
 
     }
@@ -292,7 +305,7 @@ observeEvent(input$grid_ref, {
   })
 
   # Are we developing locally?
-  dev = FALSE
+  dev = TRUE
 
   # Create a server for the export
   tmp_dir <- tempdir() # file.path(getwd(), "export_dir") # tempdir()

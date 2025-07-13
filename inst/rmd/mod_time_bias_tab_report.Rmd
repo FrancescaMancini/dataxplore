@@ -58,8 +58,11 @@ result <- assessRecordNumber(
   identifier = params$identifier,
   normalize = params$normalize
 )
-```
 
-```{r plot-results}
-print(result$plot)
+# Save result
+write.csv(result$data, file = "export/time_bias.csv", row.names = FALSE)
+
+# Display plot
+result$plot
+
 ```

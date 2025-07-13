@@ -132,15 +132,33 @@ plot <- eventReactive(input$plot_button, {
     req(reformatted_data(), input$n_breaks, input$env_var_column)
 
     incProgress(0.1, detail = "Processing time periods...")
-    # 1. Define periods
-    if (input$periodtype == "ranges") {
-      ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-      year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-      periods <- lapply(year_ranges, function(range) seq(from = range[1], to = range[2]))
-    } else {
-      unique_years_range <- range(unique(reformatted_data()$year), na.rm = TRUE)
-      periods <- list(seq(from = unique_years_range[1], to = unique_years_range[2]))
-    }
+        periods <- if (input$periodtype == "ranges") {
+          ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+          year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+
+          # Check 1: Ensure all start <= end
+          for (i in seq_along(year_ranges)) {
+            if (year_ranges[[i]][1] > year_ranges[[i]][2]) {
+              showNotification(paste("Year range", i, "is invalid: start year is after end year."), type = "error")
+              return(NULL)
+            }
+          }
+
+          # Convert to sequences for overlap detection
+          sequences <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 2: Ensure no overlap between sequences
+          all_years <- unlist(sequences)
+          if (any(duplicated(all_years))) {
+            showNotification("Year ranges must not overlap.", type = "error")
+            return(NULL)
+          }
+
+          sequences
+        } else {
+          unique_years_range <- range(unique(reformatted_data()$year), na.rm = TRUE)
+          periods <- list(seq(from = unique_years_range[1], to = unique_years_range[2]))
+        }
 
     incProgress(0.3, detail = "Mapping records to monads...")
 
@@ -206,14 +224,33 @@ output$export_report <- downloadHandler(
       req(reformatted_data(), input$n_breaks, input$env_var_column)
 
       incProgress(0.1, detail = "Defining time periods...")
-      if (input$periodtype == "ranges") {
-        ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-        year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-        periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
-      } else {
-        periods <- list(seq(min(reformatted_data()$year, na.rm = TRUE),
-                            max(reformatted_data()$year, na.rm = TRUE)))
-      }
+        periods <- if (input$periodtype == "ranges") {
+          ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+          year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
+
+          # Check 1: Ensure all start <= end
+          for (i in seq_along(year_ranges)) {
+            if (year_ranges[[i]][1] > year_ranges[[i]][2]) {
+              showNotification(paste("Year range", i, "is invalid: start year is after end year."), type = "error")
+              return(NULL)
+            }
+          }
+
+          # Convert to sequences for overlap detection
+          sequences <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 2: Ensure no overlap between sequences
+          all_years <- unlist(sequences)
+          if (any(duplicated(all_years))) {
+            showNotification("Year ranges must not overlap.", type = "error")
+            return(NULL)
+          }
+
+          sequences
+        } else {
+          unique_years_range <- range(unique(reformatted_data()$year), na.rm = TRUE)
+          periods <- list(seq(from = unique_years_range[1], to = unique_years_range[2]))
+        }
 
       incProgress(0.3, detail = "Saving input datasets...")
       tmp_export_dir <- file.path(tmp_dir, "export")
@@ -231,32 +268,31 @@ output$export_report <- downloadHandler(
 
       incProgress(0.6, detail = "Rendering RMarkdown report...")
   
-  result <- tryCatch({
-    rmarkdown::render(
-      input = get_markdown_path("mod_environment_bias_tab_report.Rmd", dev = dev),
-      output_file = "environment_bias_report.html",
-      output_dir = tmp_export_dir,
-      params = list(
-        periods = periods,
-        n_breaks = input$n_breaks,
-        env_var_column = input$env_var_column,
-        crs = input$crs
-      ),
-      knit_root_dir = tmp_dir,
-      envir = new.env(parent = globalenv())
-    )
-  }, error = function(e) {
-    # Print full error object to server log
-    print(e)                # Shows full error with class
+      result <- tryCatch({
+        rmarkdown::render(
+          input = get_markdown_path("mod_environment_bias_tab_report.Rmd", dev = dev),
+          output_file = "environment_bias_report.html",
+          output_dir = tmp_export_dir,
+          params = list(
+            periods = periods,
+            n_breaks = input$n_breaks,
+            env_var_column = input$env_var_column,
+            crs = input$crs
+          ),
+          knit_root_dir = tmp_dir,
+          envir = new.env(parent = globalenv())
+        )
+      }, error = function(e) {
+        # Print full error object to server log
+        print(e)                # Shows full error with class
 
-    # Write error details to a log file (optional)
-    dump_file <- file.path(tmp_export_dir, "render_error.rds")
-    saveRDS(e, dump_file)
+        # Write error details to a log file (optional)
+        dump_file <- file.path(tmp_export_dir, "render_error.rds")
+        saveRDS(e, dump_file)
 
-    showNotification("Report generation failed. Check logs for details.", type = "error")
-    return(NULL)
-  })
-
+        showNotification("Report generation failed. Check logs for details.", type = "error")
+        return(NULL)
+      })
 
       incProgress(0.9, detail = "Zipping output...")
       zip::zipr(zipfile = file, files = list.files(tmp_export_dir, full.names = TRUE), root = tmp_export_dir)

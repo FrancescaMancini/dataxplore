@@ -84,8 +84,12 @@ result <- assessSpatialBias(
   year = params$year,
   spatialUncertainty = params$spatialUncertainty,
   identifier = params$identifier
-)$plot
+)
 
-print(result)
+# Save the data
+write.csv(result$data, file = paste0("export/spatial_bias.csv"), row.names = FALSE)
+
+# View the plots
+result$plot
 
 ```

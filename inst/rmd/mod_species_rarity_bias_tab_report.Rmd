@@ -68,8 +68,11 @@ result <- assessRarityBias(
   prevPerPeriod = params$prevPerPeriod,
   metric = params$metric
 )
-```
 
-```{r plot-results}
-print(result$plot)
+# Save result
+write.csv(result$data, file = "export/species_rarity_bias.csv", row.names = FALSE)
+
+# Display plot
+result$plot
+
 ```

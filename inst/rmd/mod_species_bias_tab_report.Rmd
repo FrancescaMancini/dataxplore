@@ -62,7 +62,10 @@ result <- assessSpeciesNumber(
   maxSpatUncertainty = params$maxSpatUncertainty,
   normalize = params$normalize
 )
-```
 
-```{r plot-results}
-print(result$plot)
+# Save result
+write.csv(result$data, file = "export/species_number_bias.csv", row.names = FALSE)
+
+# Display plot
+result$plot
+```

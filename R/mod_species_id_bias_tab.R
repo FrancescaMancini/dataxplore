@@ -91,34 +91,36 @@ mod_species_id_bias_tab_server <- function(id, uploaded_data, reformatted_data, 
 
     plot_data <- eventReactive(input$plot_button, {
       req(input$max_spat_uncert, input$type, reformatted_data())
-      
-      if (!("spatial_uncertainty" %in% names(reformatted_data()))){
-        showNotification(paste("This function requires the recording of spatial uncertainty in each entry"), type = "warning")
-        stop("Cancelling plot generation - see warning")
-      }
 
-      cleaned_data <- reformatted_data() %>%
-        filter(!is.na(year))
-      
-      num_filtered <- nrow(reformatted_data()) - nrow(cleaned_data)
-      if (num_filtered > 0) {
-        showNotification(paste(num_filtered, "rows with NA values in the year column were removed."), type = "warning")
-      }
+        periods <- if (input$periodtype == "ranges") {
+          ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
+          year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
 
-      if (input$periodtype == "ranges") {
-        ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
-        year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-        periods <- lapply(year_ranges, function(range) {
-          from <- range[1]
-          to <- range[2]
-          return(seq(from = from, to = to))
-        })
-      } else {
-        periods <- sort(unique(cleaned_data$year))
-      }
+          # Check 1: Ensure all start <= end
+          for (i in seq_along(year_ranges)) {
+            if (year_ranges[[i]][1] > year_ranges[[i]][2]) {
+              showNotification(paste("Year range", i, "is invalid: start year is after end year."), type = "error")
+              return(NULL)
+            }
+          }
+
+          # Convert to sequences for overlap detection
+          sequences <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 2: Ensure no overlap between sequences
+          all_years <- unlist(sequences)
+          if (any(duplicated(all_years))) {
+            showNotification("Year ranges must not overlap.", type = "error")
+            return(NULL)
+          }
+
+          sequences
+        } else {
+          sort(unique(reformatted_data()$year))
+        }
 
       plot <- assessSpeciesID(
-        dat = cleaned_data,
+        dat = reformatted_data(),
         species = "species",
         periods = periods,
         x = "x_coordinate",
@@ -153,13 +155,31 @@ output$export_report <- downloadHandler(
     tmp_export_dir <- file.path(tmp_dir, "export")
     if (!dir.exists(tmp_export_dir)) dir.create(tmp_export_dir, recursive = TRUE)
 
-    # Define periods
-    if (input$periodtype == "ranges") {
+    periods <- if (input$periodtype == "ranges") {
       ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
       year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-      periods <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+      # Check 1: Ensure all start <= end
+      for (i in seq_along(year_ranges)) {
+        if (year_ranges[[i]][1] > year_ranges[[i]][2]) {
+          showNotification(paste("Year range", i, "is invalid: start year is after end year."), type = "error")
+          return(NULL)
+        }
+      }
+
+      # Convert to sequences for overlap detection
+      sequences <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+      # Check 2: Ensure no overlap between sequences
+      all_years <- unlist(sequences)
+      if (any(duplicated(all_years))) {
+        showNotification("Year ranges must not overlap.", type = "error")
+        return(NULL)
+      }
+
+      sequences
     } else {
-      periods <- sort(unique(reformatted_data()$year))
+      sort(unique(reformatted_data()$year))
     }
 
     # Save data

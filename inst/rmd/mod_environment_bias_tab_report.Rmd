@@ -107,15 +107,30 @@ for (i in seq_along(params$periods)) {
 ```
 
 ```{r plot-env-bias}
-plots <- lapply(seq_along(params$periods), function(i) {
-  assessBias1D(
+# Run assessBias1D and store both plot and data
+results <- lapply(seq_along(params$periods), function(i) {
+  result <- assessBias1D(
     pop = env_data,
     breaks = params$n_breaks,
     R = paste0("presence_", i),
     x = params$env_var_column,
     RNames = paste0("Period ", i)
-  )$plot
+  )
+  list(
+    plot = result$plot,
+    data = result$data %>% dplyr::mutate(period = paste0("Period ", i))
+  )
 })
 
+# Extract and combine all data frames
+combined_data <- do.call(rbind, lapply(results, `[[`, "data"))
+
+# Save to a csv file
+write.csv(combined_data, file = "export/environmental_bias.csv", row.names = FALSE)
+
+# Extract just the ggplot objects
+plots <- lapply(results, `[[`, "plot")
+
+# View the plots
 wrap_plots(plots, ncol = 1)
 ```

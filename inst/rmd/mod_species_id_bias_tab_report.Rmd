@@ -61,7 +61,11 @@ result <- assessSpeciesID(
   maxSpatUncertainty = params$maxSpatUncertainty,
   type = params$type
 )
-```
 
-```{r plot-results}
-print(result$plot)
+# Save result
+write.csv(result$data, file = "export/species_id_bias.csv", row.names = FALSE)
+
+# Display plot
+result$plot
+
+```

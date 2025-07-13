@@ -41,7 +41,7 @@ mod_space_cov_tab_ui <- function(id){
           helper(icon = "info-circle", colour = "black", 
                   content = "spatial_resolution",
                   type = "markdown"),
-        selectInput(ns("country"), "Country", choices = NULL, selected = FALSE) %>%
+        selectInput(ns("country"), "Country", choices = NULL, selected = character(0)) %>%
           helper(icon = "info-circle", colour = "black", 
                   content = "country",
                   type = "markdown"),
@@ -97,7 +97,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
     })
 
     observe({
-      updateSelectInput(session, "country", choices = iso_2_country_names$country)
+      updateSelectInput(session, "country", choices = iso_2_country_names$country, selected = character(0))
     })
 
     # Create spatial object from shapefile or country
@@ -131,29 +131,45 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
     })
 
     plot_data <- eventReactive(input$plot_button, {
-      withProgress(message = 'Generating plot...', value = 0, {
-        req(input$res, input$output, sp_df())
+      
+      req(input$res, input$output, sp_df())
 
-        incProgress(0.2, detail = "Cleaning data...")
-        cleaned_data <- reformatted_data() %>% filter(!is.na(year))
-        if ((nrow(reformatted_data()) - nrow(cleaned_data)) > 0) {
-          showNotification("Some rows with missing year were removed.", type = "warning")
-        }
+      withProgress(message = 'Generating plot...', value = 0, {
 
         incProgress(0.4, detail = "Processing time periods...")
         periods <- if (input$periodtype == "ranges") {
           ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
           year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-          lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 1: Ensure all start <= end
+          for (i in seq_along(year_ranges)) {
+            if (year_ranges[[i]][1] > year_ranges[[i]][2]) {
+              showNotification(paste("Year range", i, "is invalid: start year is after end year."), type = "error")
+              return(NULL)
+            }
+          }
+
+          # Convert to sequences for overlap detection
+          sequences <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+          # Check 2: Ensure no overlap between sequences
+          all_years <- unlist(sequences)
+          if (any(duplicated(all_years))) {
+            showNotification("Year ranges must not overlap.", type = "error")
+            return(NULL)
+          }
+
+          sequences
         } else {
-          sort(unique(cleaned_data$year))
+          sort(unique(reformatted_data()$year))
         }
 
         incProgress(0.6, detail = "Calculating spatial coverage...")
 
         if (input$output == "density") {
+
           spat_cov <- assessSpatialCov(
-            dat = cleaned_data,
+            dat = reformatted_data(),
             periods = periods,
             res = input$res,
             logCount = input$log,
@@ -167,14 +183,19 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
             identifier = "identifier",
             output = input$output
           )
+
+          spat_cov <- Map(function(name, p) {
+            p + coord_equal() +
+              theme(axis.title = element_blank(),
+                    axis.text = element_blank(),
+                    axis.ticks = element_blank()) +
+              ggtitle(name)  # Add the name as plot title
+          }, names(spat_cov), spat_cov)
+
         } else {
-          if (!("spatial_uncertainty" %in% names(cleaned_data))) {
-            showNotification("Spatial uncertainty column is missing.", type = "error")
-            stop("Missing 'spatial_uncertainty' column.")
-          }
 
           spat_cov <- assessSpatialCov(
-            dat = cleaned_data,
+            dat = reformatted_data(),
             periods = periods,
             res = input$res,
             logCount = input$log,
@@ -189,7 +210,6 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
             output = input$output,
             minPeriod = input$min_periods
           )
-        }
 
         spat_cov <- lapply(spat_cov, function(p) {
           p + coord_equal() +
@@ -198,6 +218,8 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
                   axis.ticks = element_blank()) +
             if (input$output == "overlap") scale_fill_manual(values = "blue", na.value = "white") else NULL
         })
+
+        }
 
         incProgress(0.8, detail = "Finalizing plot...")
         plot <- do.call(ggpubr::ggarrange, c(spat_cov, ncol = 1))
@@ -222,7 +244,26 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
           periods <- if (input$periodtype == "ranges") {
             ranges_input_names <- sapply(1:input$num, function(i) paste0("dates_", i))
             year_ranges <- lapply(ranges_input_names, function(id) input[[id]])
-            lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+            # Check 1: Ensure all start <= end
+            for (i in seq_along(year_ranges)) {
+              if (year_ranges[[i]][1] > year_ranges[[i]][2]) {
+                showNotification(paste("Year range", i, "is invalid: start year is after end year."), type = "error")
+                return(NULL)
+              }
+            }
+
+            # Convert to sequences for overlap detection
+            sequences <- lapply(year_ranges, function(range) seq(range[1], range[2]))
+
+            # Check 2: Ensure no overlap between sequences
+            all_years <- unlist(sequences)
+            if (any(duplicated(all_years))) {
+              showNotification("Year ranges must not overlap.", type = "error")
+              return(NULL)
+            }
+
+            sequences
           } else {
             sort(unique(reformatted_data()$year))
           }
@@ -253,6 +294,7 @@ mod_space_cov_tab_server <- function(id, reformatted_data, iso_2_country_names, 
 
           incProgress(0.6, detail = "Rendering report...")
           tryCatch({
+
             rmarkdown::render(
               input = get_markdown_path("mod_space_cov_tab_report.Rmd", dev = dev),
               output_file = "space_cov_report.html",
