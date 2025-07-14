@@ -65,7 +65,7 @@ mod_space_cov_tab_ui <- function(id){
       mainPanel(
         h2("Spatial coverage"),
         p("This function can be used to assess the extent to which the same portion of the geographic domain has been sampled over time (spatio-temporal bias). This is likely to be crucial for robust estimates of changes in species distribution over time. The function provides this information in one of three ways, which can be selected by the user in the “Output” drop down menu. See the specific tooltip for details on each of the methods."),
-        plotOutput(ns("space_cov_plot"), height = "800px")
+        plotOutput(ns("space_cov_plot"), height = "1200px")
       )
 
     )
