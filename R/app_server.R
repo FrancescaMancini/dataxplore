@@ -250,7 +250,7 @@ observeEvent(input$grid_ref, {
   })
 
   # Are we developing locally?
-  dev = TRUE
+  dev = FALSE
 
   # Create a server for the export
   tmp_dir <- tempdir() # file.path(getwd(), "export_dir") # tempdir()
