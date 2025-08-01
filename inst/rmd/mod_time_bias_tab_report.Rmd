@@ -26,7 +26,7 @@ if(!require(remotes)){
 }
 
 if(!require(occAssess)){
-  install_github("DylanCarbone/occAssess")
+  install_github("robboyd/occAssess")
 }
 
 ```

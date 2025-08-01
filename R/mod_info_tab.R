@@ -25,26 +25,41 @@ mod_info_tab_ui <- function(id){
         uiOutput(ns("text4"))
       ),
 
-      # Footer
+    # Footer
+    div(
+      style = "position: relative; margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc;",
       div(
-        style = "position: relative; margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc;",
-        div(
-          style = "display: flex; justify-content: space-between; align-items: center;",
+        style = "display: flex; justify-content: space-between; align-items: center;",
 
-          # Logo
+        # Left side: logo and privacy text side by side
+        div(
+          style = "display: flex; align-items: center; gap: 15px; margin-left: 10px;",
+
+          # UKCEH logo
           tags$img(
             src = "www/ukceh_logo.png",
-            height = "50px",
-            style = "margin-left: 10px;"
+            height = "50px"
           ),
 
-          # Privacy Policy Link
+          # Privacy Policy text
           tags$div(
-            style = "margin-right: 10px; font-size: 14px;",
+            style = "font-size: 14px;",
             HTML("View our <a href='https://www.ceh.ac.uk/privacy-notice' target='_blank'>privacy policy here</a>")
+          )
+        ),
+
+        # Right side: GitHub logo
+        tags$a(
+          href = "https://github.com/robboyd/occAssess",  # Update with your repo link
+          target = "_blank",
+          tags$img(
+            src = "www/github_logo.png",  # Put the logo in www/
+            height = "30px",
+            alt = "GitHub"
           )
         )
       )
+    )
     )
   )
 }
@@ -114,7 +129,7 @@ mod_info_tab_server <- function(id){
     output$text4 <- renderUI({
       HTML(
         paste(
-          "<p>Boyd, R. J., Powney, G. D., Carvell, C., Pescott, O. L., & Robin Boyd, C. J. (2021). occAssess: An R package for assessing potential biases in species occurrence data. Ecology and Evolution, 11(22), 16177–16187.</p>",
+          "<p>Boyd, R. J., Powney, G. D., Carvell, C., & Pescott, O. L. (2021). occAssess: An R package for assessing potential biases in species occurrence data. Ecology and Evolution, 11(22), 16177–16187.</p>",
           "<p>Boyd, R. J., Powney, G. D., Burns, F., Danet, A., Duchenne, F., Grainger, M. J., Jarvis, S. G., Martin, G., Nilsen, E. B., Porcher, E., Stewart, G. B., Wilson, O. J., &#38; Pescott, O. L. (2022). ROBITT: A tool for assessing the risk-of-bias in studies of temporal trends in ecology. Methods in Ecology and Evolution, (7), 1497–1507.</p>"
         )
       )
@@ -138,9 +153,3 @@ mod_info_tab_server <- function(id){
 
   })
 }
-
-## To be copied in the UI
-#
-
-## To be copied in the server
-#

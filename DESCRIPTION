@@ -47,4 +47,4 @@ BugReports: https://github.com/FrancescaMancini/dataxplore/issues
 Depends: 
     R (>= 3.5)
 Remotes:
-    DylanCarbone/occAssess
+    robboyd/occAssess

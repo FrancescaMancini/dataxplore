@@ -249,61 +249,6 @@ observeEvent(input$grid_ref, {
     reformatted_data()
   })
 
-  # Initialize reactiveValues
-  input_tracker <- reactiveValues(
-    species = NULL,
-    date = NULL,
-    date_format = NULL,
-    year = NULL,
-    id = NULL,
-    y_coordinate = NULL,
-    x_coordinate = NULL,
-    grid_ref = NULL,
-    grid_ref_convert = NULL,
-    grid_ref_column = NULL
-  )
-
-  # Update reactiveValues when inputs change
-  observe({
-    input_tracker$species <- input$species
-  })
-
-  observe({
-    input_tracker$date <- input$date
-  })
-
-  observe({
-    input_tracker$date_format <- input$date_format
-  })
-
-  observe({
-    input_tracker$year <- input$year
-  })
-
-  observe({
-    input_tracker$id <- input$id
-  })
-
-  observe({
-    input_tracker$y_coordinate <- input$y_coordinate
-  })
-
-  observe({
-    input_tracker$x_coordinate <- input$x_coordinate
-  })
-
-  observe({
-    input_tracker$grid_ref <- input$grid_ref
-  })
-
-  observe({
-    input_tracker$grid_ref_convert <- input$grid_ref_convert
-  })
-
-  observe({
-    input_tracker$grid_ref_column <- input$grid_ref_column
-  })
-
   # Are we developing locally?
   dev = TRUE
 
