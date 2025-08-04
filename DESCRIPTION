@@ -2,7 +2,10 @@ Package: dataxplore
 Title: Data exploration and bias assessment tool
 Version: 0.0.0.9000
 Authors@R: 
-    person("Francesca", "Mancini", , "framan@ceh.ac.uk", role = c("cre", "aut"))
+    c(
+      person("Francesca", "Mancini", email = "framan@ceh.ac.uk", role = c("cre", "aut")),
+      person("Dylan", "Carbone", email = "dylancarbone25@gmail.com", role = "aut")
+    )
 Description: An application to explore species occurrence data and assess
     biases in space, time, taxonomy and environmental space.  The
     application is an interface to the R package OccAssess and the ROBITT

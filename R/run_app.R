@@ -24,7 +24,6 @@ run_app <- function(
     'www', app_sys('app/www')
   )
 
-
   with_golem_options(
     app = shinyApp(
       ui = app_ui,

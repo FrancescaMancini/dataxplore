@@ -50,10 +50,10 @@ mod_info_tab_ui <- function(id){
 
         # Right side: GitHub logo
         tags$a(
-          href = "https://github.com/robboyd/occAssess",  # Update with your repo link
+          href = "https://github.com/FrancescaMancini/dataxplore",
           target = "_blank",
           tags$img(
-            src = "www/github_logo.png",  # Put the logo in www/
+            src = "www/github_logo.png",
             height = "30px",
             alt = "GitHub"
           )
